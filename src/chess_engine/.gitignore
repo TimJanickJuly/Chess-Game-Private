@@ -1,0 +1,48 @@
+#chatgpt generated
+
+# Build output directories
+bin/
+build/
+cmake-build-*/
+
+# CMake cache and configuration files
+CMakeCache.txt
+CMakeFiles/
+CMakeLists.txt.user
+
+# CLion-specific files
+.idea/
+*.iml
+
+# Compiled object files and binaries
+*.o
+*.obj
+*.exe
+*.out
+*.pdb
+*.idb
+*.ilk
+
+# Temporary files and directories
+*.tmp
+*.log
+*.swp
+*.swo
+*.bak
+
+# Dependency directories
+*.d
+*.dep
+*.gch
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# User-specific files
+*.user
+*.userprefs
+
+# Environment variables files
+.env
+*.env
