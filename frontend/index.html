@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+
+        #board {
+            width: 400px;
+        }
+
+        #status {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        #controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div id="board"></div>
+        <div id="status">Waiting for opponent...</div>
+        <div id="controls">
+            <button id="startGame">Start Game</button>
+        </div>
+    </div>
+
+    <script>
+        const board = Chessboard('board', {
+            draggable: true,
+            dropOffBoard: 'snapback',
+            position: 'start',
+            onDrop: onDrop
+        });
+
+        const statusElement = document.getElementById('status');
+        const startGameButton = document.getElementById('startGame');
+
+        const socket = new WebSocket('ws://localhost:8000/ws/game_id/player_id'); // Replace with dynamic IDs
+
+        socket.onopen = () => {
+            console.log('WebSocket connection established');
+        };
+
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+
+            if (message.event === 'update') {
+                board.position(message.state.game_state);
+                statusElement.innerText = `Active Player: ${message.state.active_player}`;
+            } else if (message.event === 'state') {
+                board.position(message.state.game_state);
+                statusElement.innerText = `Game State Loaded`;
+            } else if (message.event === 'opponent_disconnected') {
+                statusElement.innerText = 'Opponent disconnected';
+            }
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed');
+            statusElement.innerText = 'Connection closed';
+        };
+
+        startGameButton.addEventListener('click', () => {
+            fetch('http://localhost:8000/create_game', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Game created:', data.game_id);
+                    statusElement.innerText = 'Game created! Waiting for opponent...';
+                })
+                .catch(error => console.error('Error creating game:', error));
+        });
+
+        function onDrop(source, target) {
+            const move = {
+                action: 'move',
+                move: `${source}${target}`
+            };
+
+            socket.send(JSON.stringify(move));
+            return 'snapback';
+        }
+    </script>
+</body>
+</html>
