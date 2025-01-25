@@ -1,0 +1,136 @@
+# Node.js / React spezifisch
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.local
+.env.*.local
+
+# Log-Dateien
+logs
+*.log
+*.log.*
+log/
+debug.log
+npm-debug.log
+yarn-debug.log
+pnpm-debug.log
+
+# Build-Ausgaben
+build/
+dist/
+.cache/
+out/
+
+# Testing-Dateien
+coverage/
+jest-coverage/
+.nyc_output/
+
+# IDE spezifisch
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Betriebssystem spezifisch
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.pid
+*.seed
+
+# Python spezifisch
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.sqlite3
+
+# Virtuelle Umgebungen
+env/
+venv/
+ENV/
+*.venv/
+env.bak/
+venv.bak/
+
+# Pipenv und Poetry
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# PyInstaller
+*.manifest
+*.spec
+
+# MyPy und andere Typprüfer
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+*.ipynb
+*.nbsphinx
+
+# Byte-compiled / Optimized / Coverage files
+*.py[cod]
+*.pyo
+*.pyd
+.coverage
+.tox/
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Pycharm spezifisch
+*.iml
+.idea/
+*.iws
+*.ipr
+.idea/modules.xml
+.idea/*.iml
+.idea/workspace.xml
+
+# Backup-Dateien
+*.bak
+*.swp
+*.swo
+*.tmp
+
+# Mac spezifisch
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux spezifisch
+*~
+# Ordner spezifisch
+lost+found/
+
+# Windows spezifisch
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Andere Versionierungsdateien
+*.lock
+*.gz
+*.tar
+*.zip
+
+# Lokale Verzeichnisse für Deployment
+*.local/
+*.envrc
