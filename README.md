@@ -22,6 +22,8 @@ Dieses Projekt erstellt ein Python-Modul (`chess_engine`) aus einer C++-Codebasi
    mkdir build
    cd build
    ```
+(cmake -Dpybind11_DIR="C:/Users/tim.janick.july/Documents/Ch
+essGame/venv/Lib/site-packages/pybind11/share/cmake/pybind11" ..)
 
 3. **Führe CMake aus**, um das Projekt zu konfigurieren. Achte darauf, den richtigen `pybind11`-Pfad anzugeben:
    ```bash
