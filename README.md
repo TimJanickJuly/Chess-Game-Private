@@ -39,7 +39,7 @@ essGame/venv/Lib/site-packages/pybind11/share/cmake/pybind11" ..)
    ```plaintext
    build/Release/chess_engine.pyd
    ```
-
+am beste .pyd direkt in die venv kopieren
 ## Nutzung
 
 1. **Füge das Build-Verzeichnis zu `PYTHONPATH` hinzu**, damit das Modul importiert werden kann:
