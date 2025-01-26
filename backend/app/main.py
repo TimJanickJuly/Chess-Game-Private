@@ -200,8 +200,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str)
                 if move:
                     move = convert_move_to_notation(move)
                     game_wrapper.handle_move(move)
-                    state = game_wrapper.get_state()
-                    await manager.broadcast({"event": "update", "state": state})
+                state = game_wrapper.get_state()
+                await manager.broadcast({"event": "update", "state": state})
             elif data["action"] == "get_state":
                 state = game_wrapper.get_state()
                 await manager.send_message(player_id, {"event": "state", "state": state})
