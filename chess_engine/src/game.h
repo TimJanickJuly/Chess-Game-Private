@@ -91,7 +91,7 @@ public:
     void print_board_state() const;
 
     std::vector<std::tuple<char, std::string, int, int>> get_all_positions();
-    std::vector<std::tuple<std::string, char, std::vector<std::tuple<int, int>>>>  get_player_moves(int player);
+    std::vector<std::tuple<std::string, char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> get_player_moves(int player);
     std::vector<std::vector<int>> get_board_state();
 
 

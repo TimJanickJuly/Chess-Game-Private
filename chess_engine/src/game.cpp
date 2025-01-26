@@ -1064,8 +1064,8 @@ std::vector<std::tuple<char, std::string, int, int>> Game::get_all_positions() {
     return positions;
 }
 
-std::vector<std::tuple<std::string, char, std::vector<std::tuple<int, int>>>> Game::get_player_moves(int player) {
-    std::vector<std::tuple<std::string, char, std::vector<std::tuple<int, int>>>> moves;
+std::vector<std::tuple<std::string, char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> Game::get_player_moves(int player) {
+    std::vector<std::tuple<std::string, char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> moves;
 
     auto pieces = (player == 1) ? white_pieces : black_pieces;
 
@@ -1074,7 +1074,9 @@ std::vector<std::tuple<std::string, char, std::vector<std::tuple<int, int>>>> Ga
         for (const auto& move : get_available_moves(piece, player)) {
             piece_moves.emplace_back(move->row_target, move->col_target);
         }
-        moves.emplace_back(piece->getColor(), piece->getPieceType(), piece_moves);
+        moves.emplace_back(piece->getColor(), piece->getPieceType(),
+                           std::make_tuple(piece->get_row(), piece->get_col()),
+                           piece_moves);
     }
     return moves;
 }

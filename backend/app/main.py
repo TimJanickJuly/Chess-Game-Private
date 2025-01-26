@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
+from fastapi import Request
 import os
 import sys
 import uuid
@@ -27,11 +28,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Erlaubt Anfragen von allen Quellen (für Entwicklung)
+    allow_origins=["*"],  # Erlaube Anfragen von allen Ursprüngen (für Entwicklung)
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Erlaube alle HTTP-Methoden
+    allow_headers=["*"],  # Erlaube alle Header
 )
+
+def convert_move_to_notation(move):
+    def to_chess_notation(row, col):
+        files = "abcdefgh"
+        return f"{files[col]}{8 - row}"
+
+    start = move["start"]
+    end = move["end"]
+    return f"{to_chess_notation(start['row'], start['col'])}{to_chess_notation(end['row'], end['col'])}"
+
+
 
 class GameWrapper:
     def __init__(self):
@@ -78,6 +90,8 @@ class GameWrapper:
             return False, "illegale move syntax"
         
     def get_state(self):
+        print(type(self.game_instance.get_board_state()))
+        print(self.game_instance.get_board_state())
         return {
             "game_state": self.game_instance.game_state,
             "num_moves_played": self.game_instance.num_moves_played,
@@ -88,13 +102,14 @@ class GameWrapper:
                 self.player_black: "black"
             },
             "both_joined": len(self.players) == 2,
+            "board_state": self.game_instance.get_board_state()[::-1],
             "legal_moves": self.get_legal_moves()
         }
     def print_board_debug(self):
         print(self.game_instance.get_board_state())
     
     def get_legal_moves(self):
-        return {"white" : self.game.get_player_moves(1), "black" : self.game.get_player_moves(-1)}
+        return {"white" : self.game_instance.get_player_moves(1), "black" : self.game_instance.get_player_moves(-1)}
 
 # In-Memory Store für Spiele und Verbindungen
 games = {}
@@ -136,18 +151,24 @@ async def create_game():
     return {"game_id": game_id}
 
 @app.post("/join_game/{game_id}")
-async def join_game(game_id: str, request: JoinGameRequest):
+async def join_game(game_id: str, request: Request):
     """Tritt einem Spiel bei."""
-    if game_id not in games:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    game_wrapper = games[game_id]
     try:
-        game_wrapper.add_player(request.player_id)
+        # Rohinhalt des Requests lesen
+        json_body = await request.json()  # JSON-Daten extrahieren
+        player_id = json_body.get("player_id")  # `player_id` extrahieren
+        if not player_id:
+            raise HTTPException(status_code=422, detail="player_id missing")
+
+        if game_id not in games:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        game_wrapper = games[game_id]
+        game_wrapper.add_player(player_id)
+
+        return {"message": "Joined game successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    
-    return {"message": "Joined game successfully"}
+        raise HTTPException(status_code=400, detail=f"Invalid request format: {e}")
 
 @app.get("/game_info/{game_id}")
 async def get_game_info(game_id: str):
@@ -177,6 +198,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str)
             if data["action"] == "move":
                 move = data.get("move")
                 if move:
+                    move = convert_move_to_notation(move)
                     game_wrapper.handle_move(move)
                     state = game_wrapper.get_state()
                     await manager.broadcast({"event": "update", "state": state})
@@ -185,6 +207,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str)
                 await manager.send_message(player_id, {"event": "state", "state": state})
     except WebSocketDisconnect:
         manager.disconnect(player_id)
+        
+
 
 @app.get("/game_state/{game_id}")
 async def get_game_state(game_id: str):

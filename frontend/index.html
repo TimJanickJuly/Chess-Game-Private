@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chess Game</title>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="./libs/chessboard-1.0.0.min.css">
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="./libs/chessboard-1.0.0.min.js"></script>
+    <title>Chess Game (Brython)</title>
+    <script src="https://cdn.jsdelivr.net/npm/brython@3.11.1/brython.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/brython@3.11.1/brython_stdlib.js"></script>
+
+    
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -42,238 +42,322 @@
             background-color: #0056b3;
         }
 
-        #gameCode {
-            margin-top: 20px;
+        #board {
+            display: none;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
+            gap: 0;
+        }
+
+        .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+        }
+
+        .white {
+            background-color: #f0d9b5;
+        }
+
+        .black {
+            background-color: #b58863;
+        }
+
+        .piece {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        #gameState {
+            position: absolute;
+            top: 10px;
+            right: 20px;
             font-size: 18px;
             font-weight: bold;
             color: #333;
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-        }
-
-        #status {
-            font-size: 20px;
-            margin-top: 10px;
-            color: #555;
-        }
-
-        #board {
-            display: none;
-            width: 600px;
-            margin-top: 20px;
-        }
-
-        #gameCodeInput {
-            width: 80%;
-            padding: 10px;
-            font-size: 16px;
-            margin-top: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-
-        #joinGameForm {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        #joinGameForm button {
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        #joinGameForm button:hover {
-            background-color: #0056b3;
         }
     </style>
 </head>
-<body>
+<body onload="brython()">
     <div id="menu">
         <button class="menu-button" id="createGameBtn">Create Game</button>
-        <button class="menu-button" id="joinGameBtn">Join Game</button>
-    </div>
-
-    <div id="joinGameForm">
-        <input type="text" id="gameCodeInput" placeholder="Enter Game Code">
-        <button id="submitGameCodeBtn">Join</button>
-    </div>
+        <button class="menu-button" id="showInputBtn">Join Game</button>
+        <input type="text" id="gameIdInput" placeholder="Enter Game ID" style="display: none; padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin-top: 10px;"/>
+    </div>    
+    <div id="gameState">Waiting for game to start...</div>
 
     <div id="board"></div>
-    <div id="status"></div>
 
-    <div id="gameCode"></div>
+    <script type="text/python">
+        from browser import document, html, ajax, window
+        from browser import websocket, alert
+        import json
 
-    <script>
-        const createGameBtn = document.getElementById('createGameBtn');
-        const joinGameBtn = document.getElementById('joinGameBtn');
-        const gameCodeDisplay = document.getElementById('gameCode');
-        const boardElement = document.getElementById('board');
-        const joinGameForm = document.getElementById('joinGameForm');
-        const gameCodeInput = document.getElementById('gameCodeInput');
-        const submitGameCodeBtn = document.getElementById('submitGameCodeBtn');
-        const statusDisplay = document.getElementById('status');
+        base_url = "http://localhost:8000"
+        socket = None
 
-        let board;
-        let playerId = `player_${Math.random().toString(36).substring(2, 15)}`;
-        let legalMoves = [];
-        let playerColor = null;
-        let bothPlayersJoined = false;
-        let isPlayerTurn = false;
+        class GameState:
+            def __init__(self, text):
+                self.text = text
+                self.code = 0
+                self.details = None
+                self.board_state = [
+                    [-5, -3, -4, -9, -10, -4, -3, -5],
+                    [-1, -1, -1, -1, -1, -1, -1, -1],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0],
+                    [1, 1, 1, 1, 1, 1, 1, 1],
+                    [5, 3, 4, 9, 10, 4, 3, 5]
+                ]
+                self.legal_moves = []
+                self.player_name = ""
+                self.player_color = None
+                self.game_id = None
+                self.num_moves_played = 0
+                self.active_player = ""
+                self.players = []
+                self.player_colors = {}
+                self.both_joined = False
 
-        function updateStatus(message) {
-            statusDisplay.textContent = message;
+            def update_from_response(self, response):
+                self.text = response.get("game_state", self.text)
+                self.num_moves_played = response.get("num_moves_played", self.num_moves_played)
+                self.active_player = response.get("active_player", self.active_player)
+                self.players = response.get("players", self.players)
+                self.player_colors = response.get("player_colors", self.player_colors)
+                self.both_joined = response.get("both_joined", self.both_joined)
+                self.board_state = response.get("board_state", self.board_state)
+                self.legal_moves = response.get("legal_moves", self.legal_moves)
+                self.debug_state()
+
+            def debug_state(self):
+                print("GameState Debug:")
+                print(f"  Text: {self.text}")
+                print(f"  Num Moves Played: {self.num_moves_played}")
+                print(f"  Active Player: {self.active_player}")
+                print(f"  Players: {self.players}")
+                print(f"  Player Colors: {self.player_colors}")
+                print(f"  Both Joined: {self.both_joined}")
+                print(f"  Board State: {self.board_state}")
+                print(f"  Legal Moves: {self.legal_moves}")
+
+        piece_encoding = {
+            -10: "bK", -9: "bQ", -5: "bR", -4: "bB", -3: "bN", -1: "bP", 
+            0: None,
+            1: "wP", 3: "wN", 4: "wB", 5: "wR", 9: "wQ", 10: "wK"
         }
 
-        createGameBtn.addEventListener('click', () => {
-            fetch('http://localhost:8000/create_game', {
-                method: 'POST',
-            })
-                .then(response => response.json())
-                .then(data => {
-                    gameCodeDisplay.textContent = `Game Code: ${data.game_id}`;
-                    boardElement.style.display = 'block';
-                    joinGameForm.style.display = 'none';
-                    document.getElementById('menu').style.display = 'none';
-                    updateStatus("Waiting for Player 2...");
-                    board = Chessboard('board', {
-                        position: 'start',
-                        draggable: true,
-                        sparePieces: false,
-                        pieceTheme: './libs/img/chesspieces/wikipedia/{piece}.png',
-                        onDragStart: onDragStart,
-                        onDrop: onDrop
-                    });
+        game_state = GameState("Waiting for game to start...")
 
-                    fetch(`http://localhost:8000/join_game/${data.game_id}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ player_id: playerId })
-                    }).then(() => setupWebSocket(data.game_id));
-                })
-                .catch(error => {
-                    console.error('Error creating game:', error);
-                    gameCodeDisplay.textContent = 'Failed to create game. Please try again.';
-                });
-        });
+        # Communication
+        def request_game_state():
+            if socket and socket_open:
+                socket.send(json.dumps({"action": "get_state"}))
+            else:
+                print("WebSocket-Verbindung nicht aktiv, kann Spielstatus nicht abrufen.")
 
-        joinGameBtn.addEventListener('click', () => {
-            joinGameForm.style.display = 'flex';
-            boardElement.style.display = 'none';
-            gameCodeInput.value = '';
-            gameCodeInput.focus();
-        });
+        def create_game():
+            url = base_url + "/create_game"
+            print(url)
 
-        submitGameCodeBtn.addEventListener('click', () => {
-            const gameCode = gameCodeInput.value.trim();
-            if (!gameCode) {
-                alert('Please enter a valid game code.');
-                return;
+            def on_complete(req):
+                if req.status == 200:
+                    response = eval(req.text)  # Parses the JSON response
+                    game_state.game_id = response["game_id"]
+                    print(f"Game created with ID: {game_state.game_id}")
+
+                    # Automatically join the created game
+                    join_game()
+                else:
+                    print("Failed to create game:", req.status)
+
+            ajax.post(url, oncomplete=on_complete)
+
+
+        def join_game():
+            url = base_url + f"/join_game/{game_state.game_id}"
+            data = {
+                "player_id": game_state.player_name
             }
 
-            fetch(`http://localhost:8000/join_game/${gameCode}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ player_id: playerId })
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Failed to join game');
-                    }
-                    return response.json();
-                })
-                .then(() => {
-                    gameCodeDisplay.textContent = `Joined Game: ${gameCode}`;
-                    boardElement.style.display = 'block';
-                    joinGameForm.style.display = 'none';
-                    document.getElementById('menu').style.display = 'none';
-                    updateStatus("Waiting for Player 2...");
-                    board = Chessboard('board', {
-                        position: 'start',
-                        draggable: true,
-                        sparePieces: false,
-                        pieceTheme: './libs/img/chesspieces/wikipedia/{piece}.png',
-                        onDragStart: onDragStart,
-                        onDrop: onDrop
-                    });
-                    setupWebSocket(gameCode);
-                })
-                .catch(error => {
-                    console.error('Error joining game:', error);
-                    alert('Failed to join game. Please check the game code and try again.');
-                });
-        });
+            def on_complete(req):
+                if req.status == 200:
+                    print("Successfully joined game")
+                    update_game_state("Joined game successfully")
+                else:
+                    print("Failed to join game:", req.status)
 
-        function setupWebSocket(gameId) {
-            const ws = new WebSocket(`ws://localhost:8000/ws/${gameId}/${playerId}`);
+            ajax.post(
+                url, 
+                data=json.dumps(data), 
+                headers={"Content-Type": "application/json"}, 
+                oncomplete=on_complete
+            )
 
-            ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                if (message.event === 'update') {
-                    legalMoves = message.state.legal_moves;
-                    playerColor = message.state.player_colors[playerId];
-                    bothPlayersJoined = message.state.both_joined;
-                    isPlayerTurn = message.state.active_player === playerId;
+        def connect_websocket():
+            global socket, socket_open
+            socket = websocket.WebSocket(f"ws://localhost:8000/ws/{game_state.game_id}/{game_state.player_name}")
 
-                    if (bothPlayersJoined) {
-                        updateStatus(isPlayerTurn ? "Your turn" : "Opponent's turn");
-                        if (!statusDisplay.textContent.includes("Your turn") && !statusDisplay.textContent.includes("Opponent's turn")) {
-                            updateStatus("Game Starting...");
-                            setTimeout(() => {
-                                updateStatus(isPlayerTurn ? "Your turn" : "Opponent's turn");
-                            }, 2000);
-                        }
-                    } else {
-                        updateStatus("Waiting for Player 2...");
-                    }
-                }
-            };
+            def on_open(event):
+                global socket_open
+                socket_open = True
+                print("WebSocket-Verbindung hergestellt.")
 
-            ws.onclose = () => {
-                console.log('WebSocket connection closed.');
-            };
-        }
+            def on_message(event):
+                data = json.loads(event.data)
+                if data.get("event") == "state":
+                    game_state.update_from_response(data.get("state", {}))
+                    update_board_state(game_state.board_state)
+                    update_game_state(game_state.text)
+                elif data.get("event") == "update":
+                    game_state.update_from_response(data.get("state", {}))
+                    update_board_state(game_state.board_state)
 
-        function onDragStart(source, piece, position, orientation) {
-            // Only allow moves if it is the player's turn and the piece belongs to them
-            if (!isPlayersTurn(piece) || !bothPlayersJoined) {
-                return false;
+            def on_close(event):
+                global socket_open
+                socket_open = False
+                print("WebSocket disconnected. Reconnecting...")
+                connect_websocket()
+
+            socket.bind("open", on_open)
+            socket.bind("message", on_message)
+            socket.bind("close", on_close)
+
+        def send_move(start, end):
+            if socket and socket_open:
+                move_data = {"action": "move", "move": {"start": {"row": start[0], "col" : start[1]}, "end": {"row": end[0], "col" : end[1]}}}
+                socket.send(json.dumps(move_data))
+                request_game_state()
+            else:
+                print("WebSocket-Verbindung ist nicht aktiv! Versuche erneut zu verbinden.")
+                connect_websocket()
+
+
+        #### Logic
+
+        def create_chessboard():
+            board = document["board"]
+            board.style.display = "grid"
+            colors = ["white", "black"]
+
+            for row in range(8):
+                for col in range(8):
+                    color = colors[(row + col) % 2]
+                    position = f"{row}{col}"
+                    square = html.DIV(Class=f"square {color}", Id=position)
+                    square.text = ""  # Placeholder for pieces
+                    board <= square
+
+            document["createGameBtn"].style.display = "none"
+            document["showInputBtn"].style.display = "none"
+            document["gameIdInput"].style.display = "none"
+        
+        def place_piece(row, col, piece):
+            if piece:
+                position = f"{row}{col}"
+                square = document[position]
+                img = html.IMG(src=f"./libs/img/chesspieces/wikipedia/{piece}.png", Class="piece", draggable="true")
+                img.bind("dragstart", drag_start)
+                square <= img
+
+        def update_board_state(board_state):
+            for row in range(0,8):
+                for col in range(0,8):
+                    place_piece(row, col, piece_encoding[board_state[row][col]])
+
+        def update_game_state(new_state):
+            document["gameState"].text = new_state
+
+        def generate_player_name():
+            random_string = ''.join(
+                chr(97 + (x % 26)) for x in window.crypto.getRandomValues(window.Uint8Array.new(16))
+            )
+            return f"player_id{random_string}"
+
+        def allow_drop(event):
+            print("allow_drop triggered")
+            event.preventDefault()
+
+        def drag_start(event):
+            print("drag_start triggered")
+            event.dataTransfer.setData("text", event.target.parent.id)
+
+        def drop(event):
+            print("drop triggered")
+            event.preventDefault()
+            source_square_id = event.dataTransfer.getData("text")
+            target_square_id = event.target.id
+            print(source_square_id, target_square_id)
+            if source_square_id != target_square_id and target_square_id:
+                start_row, start_col = int(source_square_id[0]), int(source_square_id[1])
+                end_row, end_col = int(target_square_id[0]), int(target_square_id[1])
+
+                print(f"Start: ({start_row}, {start_col}) -> End: ({end_row}, {end_col})")
+
+
+                event.target.appendChild(document[source_square_id].firstChild)
+                send_move((start_row, start_col), (end_row, end_col))
+
+        def add_drag_and_drop():
+            for row in range(8):
+                for col in range(8):
+                    square = document[f"{row}{col}"]
+                    square.bind("dragover", allow_drop)
+                    square.bind("drop", drop)
+        
+        def game_init(mode):
+            create_chessboard()
+            add_drag_and_drop()
+            update_game_state(game_state.text)
+            update_board_state(game_state.board_state)
+            game_state.player_name = generate_player_name()
+            create_game()
+            connect_websocket()
+
+        def show_input_field(event):
+            input_field = document["gameIdInput"]
+            if input_field.style.display == "none":
+                input_field.style.display = "block"
+                input_field.focus()
+
+        def process_input(event):
+            if event.keyCode == 13: 
+                game_id = document["gameIdInput"].value.strip() 
+                if game_id:
+                    print(f"Game ID entered: {game_id}") 
+                    join_game_with_id(game_id)
+                else:
+                    alert("Please enter a valid Game ID!")
+
+        def join_game_with_id(game_id):
+            url = base_url + f"/join_game/{game_id}"
+            data = {
+                "player_id": game_state.player_name
             }
-        }
-
-        function onDrop(source, target) {
-            // Check if the move is legal
-            if (!isMoveLegal(source, target)) {
-                return 'snapback';
-            }
-
-            // Send the move to the server
-            console.log(`Move made: ${source} -> ${target}`);
-        }
-
-        function isPlayersTurn(piece) {
-            // Check if the piece belongs to the current player
-            if (!playerColor || !piece) return false;
-            const isWhitePiece = piece.startsWith('w');
-            return (playerColor === 'white' && isWhitePiece) || (playerColor === 'black' && !isWhitePiece);
-        }
-
-        function isMoveLegal(source, target) {
-            // Validate the move against the list of legal moves
-            return legalMoves.some(move => move[0] === source && move[1] === target);
-        }
+        
+            def on_complete(req):
+                if req.status == 200:
+                    print("Successfully joined game")
+                    update_game_state(f"Joined game {game_id} successfully")
+                else:
+                    alert(f"Failed to join game {game_id}: {req.status}")
+        
+            ajax.post(
+                url,
+                data=json.dumps(data),
+                headers={"Content-Type": "application/json"},
+                oncomplete=on_complete
+            )
+    
+        document["gameIdInput"].bind("keydown", process_input)
+        document["showInputBtn"].bind("click", show_input_field)
+        document["createGameBtn"].bind("click", lambda event: (game_init("create")))
     </script>
 </body>
 </html>
