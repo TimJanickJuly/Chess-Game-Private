@@ -4,101 +4,275 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard.min.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="./libs/chessboard-1.0.0.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="./libs/chessboard-1.0.0.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
+            flex-direction: column;
             height: 100vh;
             margin: 0;
             background-color: #f4f4f4;
         }
 
-        #board {
-            width: 400px;
+        #menu {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .menu-button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .menu-button:hover {
+            background-color: #0056b3;
+        }
+
+        #gameCode {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
         }
 
         #status {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 18px;
+            font-size: 20px;
+            margin-top: 10px;
+            color: #555;
         }
 
-        #controls {
+        #board {
+            display: none;
+            width: 600px;
             margin-top: 20px;
-            text-align: center;
+        }
+
+        #gameCodeInput {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #joinGameForm {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #joinGameForm button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #joinGameForm button:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
-    <div>
-        <div id="board"></div>
-        <div id="status">Waiting for opponent...</div>
-        <div id="controls">
-            <button id="startGame">Start Game</button>
-        </div>
+    <div id="menu">
+        <button class="menu-button" id="createGameBtn">Create Game</button>
+        <button class="menu-button" id="joinGameBtn">Join Game</button>
     </div>
 
+    <div id="joinGameForm">
+        <input type="text" id="gameCodeInput" placeholder="Enter Game Code">
+        <button id="submitGameCodeBtn">Join</button>
+    </div>
+
+    <div id="board"></div>
+    <div id="status"></div>
+
+    <div id="gameCode"></div>
+
     <script>
-        const board = Chessboard('board', {
-            draggable: true,
-            dropOffBoard: 'snapback',
-            position: 'start',
-            onDrop: onDrop
-        });
+        const createGameBtn = document.getElementById('createGameBtn');
+        const joinGameBtn = document.getElementById('joinGameBtn');
+        const gameCodeDisplay = document.getElementById('gameCode');
+        const boardElement = document.getElementById('board');
+        const joinGameForm = document.getElementById('joinGameForm');
+        const gameCodeInput = document.getElementById('gameCodeInput');
+        const submitGameCodeBtn = document.getElementById('submitGameCodeBtn');
+        const statusDisplay = document.getElementById('status');
 
-        const statusElement = document.getElementById('status');
-        const startGameButton = document.getElementById('startGame');
+        let board;
+        let playerId = `player_${Math.random().toString(36).substring(2, 15)}`;
+        let legalMoves = [];
+        let playerColor = null;
+        let bothPlayersJoined = false;
+        let isPlayerTurn = false;
 
-        const socket = new WebSocket('ws://localhost:8000/ws/game_id/player_id'); // Replace with dynamic IDs
+        function updateStatus(message) {
+            statusDisplay.textContent = message;
+        }
 
-        socket.onopen = () => {
-            console.log('WebSocket connection established');
-        };
-
-        socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-
-            if (message.event === 'update') {
-                board.position(message.state.game_state);
-                statusElement.innerText = `Active Player: ${message.state.active_player}`;
-            } else if (message.event === 'state') {
-                board.position(message.state.game_state);
-                statusElement.innerText = `Game State Loaded`;
-            } else if (message.event === 'opponent_disconnected') {
-                statusElement.innerText = 'Opponent disconnected';
-            }
-        };
-
-        socket.onclose = () => {
-            console.log('WebSocket connection closed');
-            statusElement.innerText = 'Connection closed';
-        };
-
-        startGameButton.addEventListener('click', () => {
+        createGameBtn.addEventListener('click', () => {
             fetch('http://localhost:8000/create_game', {
-                method: 'POST'
+                method: 'POST',
             })
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Game created:', data.game_id);
-                    statusElement.innerText = 'Game created! Waiting for opponent...';
+                    gameCodeDisplay.textContent = `Game Code: ${data.game_id}`;
+                    boardElement.style.display = 'block';
+                    joinGameForm.style.display = 'none';
+                    document.getElementById('menu').style.display = 'none';
+                    updateStatus("Waiting for Player 2...");
+                    board = Chessboard('board', {
+                        position: 'start',
+                        draggable: true,
+                        sparePieces: false,
+                        pieceTheme: './libs/img/chesspieces/wikipedia/{piece}.png',
+                        onDragStart: onDragStart,
+                        onDrop: onDrop
+                    });
+
+                    fetch(`http://localhost:8000/join_game/${data.game_id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ player_id: playerId })
+                    }).then(() => setupWebSocket(data.game_id));
                 })
-                .catch(error => console.error('Error creating game:', error));
+                .catch(error => {
+                    console.error('Error creating game:', error);
+                    gameCodeDisplay.textContent = 'Failed to create game. Please try again.';
+                });
         });
 
-        function onDrop(source, target) {
-            const move = {
-                action: 'move',
-                move: `${source}${target}`
+        joinGameBtn.addEventListener('click', () => {
+            joinGameForm.style.display = 'flex';
+            boardElement.style.display = 'none';
+            gameCodeInput.value = '';
+            gameCodeInput.focus();
+        });
+
+        submitGameCodeBtn.addEventListener('click', () => {
+            const gameCode = gameCodeInput.value.trim();
+            if (!gameCode) {
+                alert('Please enter a valid game code.');
+                return;
+            }
+
+            fetch(`http://localhost:8000/join_game/${gameCode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ player_id: playerId })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to join game');
+                    }
+                    return response.json();
+                })
+                .then(() => {
+                    gameCodeDisplay.textContent = `Joined Game: ${gameCode}`;
+                    boardElement.style.display = 'block';
+                    joinGameForm.style.display = 'none';
+                    document.getElementById('menu').style.display = 'none';
+                    updateStatus("Waiting for Player 2...");
+                    board = Chessboard('board', {
+                        position: 'start',
+                        draggable: true,
+                        sparePieces: false,
+                        pieceTheme: './libs/img/chesspieces/wikipedia/{piece}.png',
+                        onDragStart: onDragStart,
+                        onDrop: onDrop
+                    });
+                    setupWebSocket(gameCode);
+                })
+                .catch(error => {
+                    console.error('Error joining game:', error);
+                    alert('Failed to join game. Please check the game code and try again.');
+                });
+        });
+
+        function setupWebSocket(gameId) {
+            const ws = new WebSocket(`ws://localhost:8000/ws/${gameId}/${playerId}`);
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                if (message.event === 'update') {
+                    legalMoves = message.state.legal_moves;
+                    playerColor = message.state.player_colors[playerId];
+                    bothPlayersJoined = message.state.both_joined;
+                    isPlayerTurn = message.state.active_player === playerId;
+
+                    if (bothPlayersJoined) {
+                        updateStatus(isPlayerTurn ? "Your turn" : "Opponent's turn");
+                        if (!statusDisplay.textContent.includes("Your turn") && !statusDisplay.textContent.includes("Opponent's turn")) {
+                            updateStatus("Game Starting...");
+                            setTimeout(() => {
+                                updateStatus(isPlayerTurn ? "Your turn" : "Opponent's turn");
+                            }, 2000);
+                        }
+                    } else {
+                        updateStatus("Waiting for Player 2...");
+                    }
+                }
             };
 
-            socket.send(JSON.stringify(move));
-            return 'snapback';
+            ws.onclose = () => {
+                console.log('WebSocket connection closed.');
+            };
+        }
+
+        function onDragStart(source, piece, position, orientation) {
+            // Only allow moves if it is the player's turn and the piece belongs to them
+            if (!isPlayersTurn(piece) || !bothPlayersJoined) {
+                return false;
+            }
+        }
+
+        function onDrop(source, target) {
+            // Check if the move is legal
+            if (!isMoveLegal(source, target)) {
+                return 'snapback';
+            }
+
+            // Send the move to the server
+            console.log(`Move made: ${source} -> ${target}`);
+        }
+
+        function isPlayersTurn(piece) {
+            // Check if the piece belongs to the current player
+            if (!playerColor || !piece) return false;
+            const isWhitePiece = piece.startsWith('w');
+            return (playerColor === 'white' && isWhitePiece) || (playerColor === 'black' && !isWhitePiece);
+        }
+
+        function isMoveLegal(source, target) {
+            // Validate the move against the list of legal moves
+            return legalMoves.some(move => move[0] === source && move[1] === target);
         }
     </script>
 </body>

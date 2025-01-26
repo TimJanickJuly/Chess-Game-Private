@@ -1052,6 +1052,43 @@ void Game::print_history() {
     }
 }
 
+
+std::vector<std::tuple<char, std::string, int, int>> Game::get_all_positions() {
+    std::vector<std::tuple<char, std::string, int, int>> positions;
+    for (const auto& piece : white_pieces) {
+        positions.emplace_back(piece->getPieceType(), piece->getColor(), piece->get_row(), piece->get_col());
+    }
+    for (const auto& piece : black_pieces) {
+        positions.emplace_back(piece->getPieceType(), piece->getColor(), piece->get_row(), piece->get_col());
+    }
+    return positions;
+}
+
+std::vector<std::tuple<std::string, char, std::vector<std::tuple<int, int>>>> Game::get_player_moves(int player) {
+    std::vector<std::tuple<std::string, char, std::vector<std::tuple<int, int>>>> moves;
+
+    auto pieces = (player == 1) ? white_pieces : black_pieces;
+
+    for (const auto& piece : pieces) {
+        std::vector<std::tuple<int, int>> piece_moves;
+        for (const auto& move : get_available_moves(piece, player)) {
+            piece_moves.emplace_back(move->row_target, move->col_target);
+        }
+        moves.emplace_back(piece->getColor(), piece->getPieceType(), piece_moves);
+    }
+    return moves;
+}
+
+std::vector<std::vector<int>> Game::get_board_state() {
+    std::vector<std::vector<int>> state(8, std::vector<int>(8));
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            state[i][j] = board_state[i][j];
+        }
+    }
+    return state;
+}
+
 std::unordered_map<int, std::string> Game::valueToPiece = {
     {EE, ".."},
     {BK, "BK"},

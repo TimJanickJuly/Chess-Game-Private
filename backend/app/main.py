@@ -1,20 +1,103 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
-from chess_engine import Game
+import os
+import sys
 import uuid
+from pydantic import BaseModel
+current_directory = os.getcwd()
+
+# Zum Python-Suchpfad hinzufügen
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
+from chess_engine import Game
+
+import random
+
+# Aktuellen Pfad der Datei abrufen
+current_directory = os.path.dirname(os.path.abspath(__file__))
+
+# Zum Python-Suchpfad hinzufügen
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
 
 app = FastAPI()
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Erlaubt Anfragen von allen Quellen (für Entwicklung)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class GameWrapper:
+    def __init__(self):
+        self.game_instance = Game()
+        self.players = []
+        self.player_white = None
+        self.player_black = None
+        self.active_player = None
+
+    def add_player(self, player_id: str):
+        if len(self.players) >= 2:
+            raise ValueError("Game is full")
+        self.players.append(player_id)
+        if len(self.players) == 1:
+            self.player_white = player_id
+        elif len(self.players) == 2:
+            self.player_black = player_id
+        self.update_active_player()
+        
+    def choose_sides(self):
+        if random.randint(0, 1) == 0:
+            self.player_white = self.players[0]
+            self.player_black = self.players[1]
+        else:
+            self.player_white = self.players[1]
+            self.player_black = self.players[0]
+        self.update_active_player()
+
+    def update_active_player(self):
+        self.active_player = (
+            self.player_white if len(self.players) == 1 else self.player_black
+        )
+
+    def handle_move(self, move: str):
+        result = self.game_instance.handle_turn(move)
+        if result == -1:
+            return False, "illegal move"
+        elif result == 2:
+            self.update_active_player()
+            return True, "move executed"
+        elif result == 0:
+            return True, self.game_instance.game_state
+        else:
+            return False, "illegale move syntax"
+        
+    def get_state(self):
+        return {
+            "game_state": self.game_instance.game_state,
+            "num_moves_played": self.game_instance.num_moves_played,
+            "active_player": self.active_player,
+            "players": self.players,
+            "player_colors": {
+                self.player_white: "white",
+                self.player_black: "black"
+            },
+            "both_joined": len(self.players) == 2,
+            "legal_moves": self.get_legal_moves()
+        }
+    def print_board_debug(self):
+        print(self.game_instance.get_board_state())
+    
+    def get_legal_moves(self):
+        return {"white" : self.game.get_player_moves(1), "black" : self.game.get_player_moves(-1)}
+
 # In-Memory Store für Spiele und Verbindungen
 games = {}
-connections = {}
-
-from pydantic import BaseModel
-
-class JoinGameRequest(BaseModel):
-    player_id: str
-
 
 class ConnectionManager:
     def __init__(self):
@@ -38,18 +121,18 @@ class ConnectionManager:
             if player_id not in exclude:
                 await websocket.send_json(message)
 
-
 manager = ConnectionManager()
+
+class JoinGameRequest(BaseModel):
+    player_id: str
 
 @app.post("/create_game")
 async def create_game():
     """Erstellt ein neues Spiel und gibt die Spiel-ID zurück."""
     game_id = str(uuid.uuid4())
-    game = Game()
-    games[game_id] = {
-        "game": game,
-        "players": [],
-    }
+    game_wrapper = GameWrapper()
+    games[game_id] = game_wrapper
+    print(f"Game created with ID: {game_id}")  # Debugging-Info
     return {"game_id": game_id}
 
 @app.post("/join_game/{game_id}")
@@ -58,41 +141,47 @@ async def join_game(game_id: str, request: JoinGameRequest):
     if game_id not in games:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    if len(games[game_id]["players"]) >= 2:
-        raise HTTPException(status_code=400, detail="Game is full")
+    game_wrapper = games[game_id]
+    try:
+        game_wrapper.add_player(request.player_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
-    games[game_id]["players"].append(request.player_id)
     return {"message": "Joined game successfully"}
+
+@app.get("/game_info/{game_id}")
+async def get_game_info(game_id: str):
+    """Gibt Informationen über das Spiel zurück."""
+    if game_id not in games:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    game_wrapper = games[game_id]
+    return game_wrapper.get_state()
 
 @app.websocket("/ws/{game_id}/{player_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str):
     """WebSocket-Endpunkt für Echtzeitkommunikation."""
     await manager.connect(websocket, player_id)
-    if game_id not in games or player_id not in games[game_id]["players"]:
+    if game_id not in games:
+        await websocket.close(code=4001)
+        return
+    
+    game_wrapper = games[game_id]
+    if player_id not in game_wrapper.players:
         await websocket.close(code=4001)
         return
     
     try:
         while True:
             data = await websocket.receive_json()
-            game = games[game_id]["game"]
-
             if data["action"] == "move":
                 move = data.get("move")
                 if move:
-                    game.handle_turn(move)
-                    state = {
-                        "game_state": game.game_state,
-                        "num_moves_played": game.num_moves_played,
-                        "active_player": game.active_player,
-                    }
+                    game_wrapper.handle_move(move)
+                    state = game_wrapper.get_state()
                     await manager.broadcast({"event": "update", "state": state})
             elif data["action"] == "get_state":
-                state = {
-                    "game_state": game.game_state,
-                    "num_moves_played": game.num_moves_played,
-                    "active_player": game.active_player,
-                }
+                state = game_wrapper.get_state()
                 await manager.send_message(player_id, {"event": "state", "state": state})
     except WebSocketDisconnect:
         manager.disconnect(player_id)
@@ -103,9 +192,5 @@ async def get_game_state(game_id: str):
     if game_id not in games:
         return JSONResponse({"error": "Game not found"}, status_code=404)
     
-    game = games[game_id]["game"]
-    return {
-        "game_state": game.game_state,
-        "num_moves_played": game.num_moves_played,
-        "active_player": game.active_player,
-    }
+    game_wrapper = games[game_id]
+    return game_wrapper.get_state()

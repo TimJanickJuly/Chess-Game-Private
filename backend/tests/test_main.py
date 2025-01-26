@@ -1,12 +1,17 @@
 import pytest
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
-from app.main import app
+current_directory = os.path.dirname(os.path.abspath(__file__))
+app_directory = os.path.join(current_directory, "../app")
+
+if app_directory not in sys.path:
+    sys.path.append(app_directory)
+
+from chess_engine import Game
+
 from fastapi.testclient import TestClient
-from app.main import app  # Importiere deine FastAPI-App
-
+from main import app  
 client = TestClient(app)
 
 def test_create_game():
