@@ -80,6 +80,17 @@
             font-weight: bold;
             color: #333;
         }
+        #gameIdDisplay {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        border: 1px solid #ccc;
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+    }
+
     </style>
 </head>
 <body onload="brython()">
@@ -87,6 +98,7 @@
         <button class="menu-button" id="createGameBtn">Create Game</button>
         <button class="menu-button" id="showInputBtn">Join Game</button>
         <input type="text" id="gameIdInput" placeholder="Enter Game ID" style="display: none; padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin-top: 10px;"/>
+        <div id="gameIdDisplay"></div>
     </div>    
     <div id="gameState">Waiting for game to start...</div>
 

@@ -28,21 +28,31 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Erlaube Anfragen von allen Ursprüngen (für Entwicklung)
+    allow_origins=["http://localhost:8080", "http://localhost:8081"],  # Erlaube spezifische Ursprünge
     allow_credentials=True,
-    allow_methods=["*"],  # Erlaube alle HTTP-Methoden
-    allow_headers=["*"],  # Erlaube alle Header
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],  # Erlaube nur relevante Methoden
+    allow_headers=["*"],
 )
 
-def convert_move_to_notation(move):
-    def to_chess_notation(row, col):
-        files = "abcdefgh"
-        return f"{files[col]}{8 - row}"
+def chess_move_notation(start_row, end_row, start_col, end_col, game):
+    position_map = {7: 'a', 6: 'b', 5: 'c', 4: 'd', 3: 'e', 2: 'f', 1: 'g', 0: 'h'}
+    
+    start_square = position_map[start_col] + start_row
+    end_square = position_map[end_col] + end_row
 
-    start = move["start"]
-    end = move["end"]
-    return f"{to_chess_notation(start['row'], start['col'])}{to_chess_notation(end['row'], end['col'])}"
+    all_positions = game.get_all_positions()
+    piece = None
 
+    for p, color, row, col in all_positions:
+        if row == start_row and col == start_col:
+            piece = p
+            break
+
+    if piece is None:
+        return f"Invalid move: no piece at {start_square}"
+    
+    piece_notation = '' if piece == 'P' else piece
+    return f"{piece_notation}{start_square}{end_square}"
 
 
 class GameWrapper:
@@ -57,25 +67,24 @@ class GameWrapper:
         if len(self.players) >= 2:
             raise ValueError("Game is full")
         self.players.append(player_id)
-        if len(self.players) == 1:
-            self.player_white = player_id
-        elif len(self.players) == 2:
-            self.player_black = player_id
-        self.update_active_player()
-        
+        if len(self.players) == 2:
+            self.choose_sides()
+
     def choose_sides(self):
+        if len(self.players) != 2:
+            raise ValueError("Both players must join before assigning sides")
         if random.randint(0, 1) == 0:
             self.player_white = self.players[0]
             self.player_black = self.players[1]
         else:
             self.player_white = self.players[1]
             self.player_black = self.players[0]
-        self.update_active_player()
+        self.active_player = self.player_white
 
     def update_active_player(self):
-        self.active_player = (
-            self.player_white if len(self.players) == 1 else self.player_black
-        )
+        if self.active_player is None:
+            raise ValueError("Active player is not initialized")
+        self.active_player = self.player_black if self.active_player == self.player_white else self.player_white
 
     def handle_move(self, move: str):
         result = self.game_instance.handle_turn(move)
@@ -87,11 +96,13 @@ class GameWrapper:
         elif result == 0:
             return True, self.game_instance.game_state
         else:
-            return False, "illegale move syntax"
-        
+            return False, "illegal move syntax"
+
     def get_state(self):
-        print(type(self.game_instance.get_board_state()))
-        print(self.game_instance.get_board_state())
+        if len(self.players) != 2 or self.player_white is None or self.player_black is None:
+            game_state = "waiting for 2nd player"
+        else:
+            game_state = self.game_instance.game_state
         return {
             "game_state": self.game_instance.game_state,
             "num_moves_played": self.game_instance.num_moves_played,
@@ -105,15 +116,19 @@ class GameWrapper:
             "board_state": self.game_instance.get_board_state()[::-1],
             "legal_moves": self.get_legal_moves()
         }
+
     def print_board_debug(self):
         print(self.game_instance.get_board_state())
-    
+
     def get_legal_moves(self):
-        return {"white" : self.game_instance.get_player_moves(1), "black" : self.game_instance.get_player_moves(-1)}
+        return {
+            "white": self.game_instance.get_player_moves(1),
+            "black": self.game_instance.get_player_moves(-1)
+        }
+
 
 # In-Memory Store für Spiele und Verbindungen
 games = {}
-
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, WebSocket] = {}
@@ -131,10 +146,16 @@ class ConnectionManager:
         if websocket:
             await websocket.send_json(message)
 
-    async def broadcast(self, message: dict, exclude: list[str] = []):
-        for player_id, websocket in self.active_connections.items():
-            if player_id not in exclude:
+    async def broadcast(self, message: dict, include: list[str]):
+        for player_id in include:
+            websocket = self.active_connections.get(player_id)
+            if websocket:
                 await websocket.send_json(message)
+
+    def are_game_players_connected(self, player_ids: list[str]) -> bool:
+        """Prüft, ob die Spieler eines Spiels aktiv verbunden sind."""
+        return all(player_id in self.active_connections for player_id in player_ids)
+
 
 manager = ConnectionManager()
 
@@ -152,11 +173,9 @@ async def create_game():
 
 @app.post("/join_game/{game_id}")
 async def join_game(game_id: str, request: Request):
-    """Tritt einem Spiel bei."""
     try:
-        # Rohinhalt des Requests lesen
-        json_body = await request.json()  # JSON-Daten extrahieren
-        player_id = json_body.get("player_id")  # `player_id` extrahieren
+        json_body = await request.json()
+        player_id = json_body.get("player_id")
         if not player_id:
             raise HTTPException(status_code=422, detail="player_id missing")
 
@@ -170,6 +189,7 @@ async def join_game(game_id: str, request: Request):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid request format: {e}")
 
+
 @app.get("/game_info/{game_id}")
 async def get_game_info(game_id: str):
     """Gibt Informationen über das Spiel zurück."""
@@ -181,8 +201,8 @@ async def get_game_info(game_id: str):
 
 @app.websocket("/ws/{game_id}/{player_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str):
-    """WebSocket-Endpunkt für Echtzeitkommunikation."""
     await manager.connect(websocket, player_id)
+    
     if game_id not in games:
         await websocket.close(code=4001)
         return
@@ -191,22 +211,32 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str)
     if player_id not in game_wrapper.players:
         await websocket.close(code=4001)
         return
-    
+
     try:
+        # Prüfen, ob die zwei Spieler des Spiels verbunden sind
+        if len(game_wrapper.players) == 2 and manager.are_game_players_connected(game_wrapper.players):
+            state = game_wrapper.get_state()
+            await manager.broadcast({"event": "update", "state": state}, include=game_wrapper.players)
+
         while True:
             data = await websocket.receive_json()
             if data["action"] == "move":
                 move = data.get("move")
                 if move:
-                    move = convert_move_to_notation(move)
+                    print(move)
+                    move = chess_move_notation(move["start"]["row"],move["start"]["col"], move["end"]["row"], move["end"]["row"], game_wrapper.game_instance)
+                    print(move)
                     game_wrapper.handle_move(move)
                 state = game_wrapper.get_state()
-                await manager.broadcast({"event": "update", "state": state})
+                await manager.broadcast({"event": "update", "state": state}, include=game_wrapper.players)
             elif data["action"] == "get_state":
                 state = game_wrapper.get_state()
                 await manager.send_message(player_id, {"event": "state", "state": state})
+            print(game_wrapper.game_instance.get_board_state())
     except WebSocketDisconnect:
         manager.disconnect(player_id)
+
+
         
 
 
