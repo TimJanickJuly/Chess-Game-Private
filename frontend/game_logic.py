@@ -3,7 +3,7 @@ import json
 
 class Config:
     BASE_URL = "http://localhost:8000"
-
+    WS_URL = "ws://localhost:8000/ws"
 class GameState:
     def __init__(self):
         self.text = "Waiting for game to start..."
@@ -122,7 +122,7 @@ class WebSocketHandler:
             return
 
         try:
-            self.socket = websocket.WebSocket(f"ws://localhost:8000/ws/{self.game_state.game_id}/{self.game_state.player_name}")
+            self.socket = websocket.WebSocket(f"{WS_URL}/{self.game_state.game_id}/{self.game_state.player_name}")
             self.socket.bind("open", self.on_open)
             self.socket.bind("message", self.on_message)
             self.socket.bind("close", self.on_close)

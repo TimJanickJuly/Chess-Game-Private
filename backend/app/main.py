@@ -28,12 +28,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:8081"],  # Erlaube spezifische Ursprünge
+    allow_origins=["*"],  # Setze hier die URL deiner AWS-Domain oder IP, falls du sie kennst
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],  # Erlaube nur relevante Methoden
+    allow_methods=["*"],  # Erlaubt alle HTTP-Methoden
     allow_headers=["*"],
 )
-
 
 class GameWrapper:
     def __init__(self):
