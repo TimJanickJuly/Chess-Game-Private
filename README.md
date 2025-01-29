@@ -22,6 +22,8 @@ Dieses Projekt erstellt ein Python-Modul (`chess_engine`) aus einer C++-Codebasi
    mkdir build
    cd build
    ```
+
+   VENV MUSS AKTIV SEIN
 (cmake -Dpybind11_DIR="C:/Users/tim.janick.july/Documents/Ch
 essGame/venv/Lib/site-packages/pybind11/share/cmake/pybind11" ..)
 
