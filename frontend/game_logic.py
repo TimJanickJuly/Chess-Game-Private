@@ -51,6 +51,8 @@ class GameState:
             self.text = "Waiting for Opponent"
         else:
             self.text = f"It's {self.player_colors[self.active_player]}'s turn!"
+        if response.get('game_state', None) == 'black wins' or response.get('game_state', None) == 'white wins' or response.get('game_state', None) == 'stalemate':
+            self.text = response.get('game_state', None)
         print("Updated Game state: ")
         self.debug_state()
         
@@ -383,12 +385,23 @@ class UI:
             print("Error: Invalid board_state provided.")
             return
 
+        flipped = game_state.own_color == "black"
+
         for row in range(8):
             for col in range(8):
+                if flipped:
+                    display_row = 7 - row  # Reihen umdrehen
+                    display_col = 7 - col  # Spalten umdrehen
+                else:
+                    display_row = row
+                    display_col = col
+
                 piece = game_state.piece_encoding.get(board_state[row][col])
                 if piece is None and board_state[row][col] != 0:
                     print(f"Warning: Unrecognized piece code at ({row}, {col}).")
-                UI.place_piece(row, col, piece)
+                
+                UI.place_piece(display_row, display_col, piece)
+
 
     @staticmethod
     def add_drag_and_drop():
@@ -423,51 +436,52 @@ class UI:
         print("drop triggered")
         event.preventDefault()
 
-        # ID der Quelle auslesen
         source_square_id = event.dataTransfer.getData("text")
         target_element = event.target
 
-        # Debugging: Ziel-Element anzeigen
-        print(f"Event target: {target_element}, ID: {getattr(target_element, 'id', 'None')}")
-
-        # Ziel-Element oder Eltern-Element mit ID finden
         while not hasattr(target_element, "id") or not target_element.id:
             target_element = target_element.parentElement
-            if not target_element:  # Fallback, falls kein Elternteil mit ID gefunden wird
+            if not target_element:
                 print("Error: Could not find a valid target element with an ID.")
                 return
 
         target_square_id = target_element.id
 
-        # Validierung der IDs
         if not source_square_id or not target_square_id:
             print(f"Error: Invalid drag-and-drop data. Source: {source_square_id}, Target: {target_square_id}")
             return
 
         print(f"Source: {source_square_id}, Target: {target_square_id}")
-        if source_square_id != target_square_id:
-            try:
-                start_row, start_col = int(source_square_id[0]), int(source_square_id[1])
-                end_row, end_col = int(target_square_id[0]), int(target_square_id[1])
-                
-                global game_state
-                
-                if game_state.game_status != "running" and not game_state.both_joined:
-                    print("Game has not started yet!")
-                    return
-                
-                if not game_state.is_move_legal(start_row, start_col, end_row, end_col):
-                    print("Illegal move attempted.")
-                    return
 
-                print(f"Moving piece from ({start_row}, {start_col}) to ({end_row}, {end_col})")
-                source_square = document[source_square_id]
-                if source_square and source_square.firstChild:
-                    socket_handler.send_move((start_row, start_col), (end_row, end_col))
-                else:
-                    print(f"Error: No piece to move from {source_square_id}.")
-            except ValueError:
-                print("Error: Invalid square IDs.")
+        try:
+            start_row, start_col = int(source_square_id[0]), int(source_square_id[1])
+            end_row, end_col = int(target_square_id[0]), int(target_square_id[1])
+
+            global game_state
+
+            flipped = game_state.own_color == "black"
+
+            if flipped:
+                start_row, start_col = 7 - start_row, 7 - start_col
+                end_row, end_col = 7 - end_row, 7 - end_col
+
+            if game_state.game_status != "running" and not game_state.both_joined:
+                print("Game has not started yet!")
+                return
+
+            if not game_state.is_move_legal(start_row, start_col, end_row, end_col):
+                print("Illegal move attempted.")
+                return
+
+            print(f"Moving piece from ({start_row}, {start_col}) to ({end_row}, {end_col})")
+            source_square = document[source_square_id]
+            if source_square and source_square.firstChild:
+                socket_handler.send_move((start_row, start_col), (end_row, end_col))
+            else:
+                print(f"Error: No piece to move from {source_square_id}.")
+        except ValueError:
+            print("Error: Invalid square IDs.")
+
 
 
                 

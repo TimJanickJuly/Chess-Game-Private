@@ -203,11 +203,13 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str)
             if data["action"] == "move":
                 move = data.get("move")
                 if move:
-                    print("HERE")
                     print(move)
-                    move = game_wrapper.game_instance.get_algebraic_chess_notation(7-move["start"]["row"], move["start"]["col"], 7-move["end"]["row"], move["end"]["col"])
-                    print(move)
-                    game_wrapper.handle_move(move)
+                    move_algebraic = game_wrapper.game_instance.get_algebraic_chess_notation(7-move["start"]["row"], move["start"]["col"], 7-move["end"]["row"], move["end"]["col"])
+                    print(move_algebraic)
+                    # handle queening
+                    if (move["end"]["row"] == 7 or move["end"]["row"] == 0) and move_algebraic[0] not in ["N", "B", "R", "Q", "K"]:
+                        move_algebraic += "=Q"
+                    game_wrapper.handle_move(move_algebraic)
                 state = game_wrapper.get_state()
                 await manager.broadcast({"event": "update", "state": state}, include=game_wrapper.players)
             elif data["action"] == "get_state":

@@ -1071,14 +1071,14 @@ std::string Game::generate_move_notation(int start_row, int start_col, int targe
         return "Invalid move: Coordinates out of bounds";
     }
 
-    int piece_value = std::abs(board_state[start_row][start_col]);
-    if (piece_value == EE) {
+    int piece_value = board_state[start_row][start_col];
+    if (piece_value == 0) {
         return "Invalid move: No piece at start position";
     }
 
     char piece_type;
-    if (piece_encoding.find(piece_value) != piece_encoding.end()) {
-        piece_type = piece_encoding[piece_value];
+    if (piece_encoding.find(std::abs(piece_value)) != piece_encoding.end()) {
+        piece_type = piece_encoding[std::abs(piece_value)];
     } else {
         return "Invalid move: Unknown piece type";
     }
@@ -1095,7 +1095,7 @@ std::string Game::generate_move_notation(int start_row, int start_col, int targe
     }
 
     // Determine if the move is a capture
-    bool is_capture = (board_state[target_row][target_col] != EE &&
+    bool is_capture = (board_state[target_row][target_col] != 0 &&
                        (board_state[target_row][target_col] * piece_value < 0));
 
     // Create a move object to generate algebraic notation
