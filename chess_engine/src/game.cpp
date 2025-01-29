@@ -15,6 +15,52 @@
 
 
 
+// Game State handling
+
+
+Game::Game() {
+    last_move_status  = "---";
+
+    game_state = "running";
+    num_moves_played = 0;
+    active_player = 1;
+
+    white_king_pos = std::make_tuple(0, 4);
+    black_king_pos = std::make_tuple(7, 4);
+    
+    is_active_player_in_check = false;
+    is_passive_player_in_check = false;
+
+    masked_coords = std::make_shared<std::tuple<int,int>>(-1,-1);
+    en_passant_coords= std::make_shared<std::tuple<int,int>>(-1,-1);
+    en_passant_option = false;
+
+    has_black_king_moved = false;
+    has_white_king_moved = false;
+    has_white_a_rook_moved = false;
+    has_white_h_rook_moved = false;
+    has_black_a_rook_moved = false;
+    has_black_h_rook_moved = false;
+
+    for (int i = 0; i <= 7; i++) {
+        for (int j = 0; j <= 7; j++) {
+            if (board_state[i][j] != EE) { // Annahme: EE steht für ein leeres Feld
+                auto piece = create_piece(board_state[i][j], i, j);
+
+                if (board_state[i][j] > 0) {
+                    white_pieces.push_back(piece);
+                } else {
+                    black_pieces.push_back(piece);
+                }
+            }
+        }
+    }
+
+    active_pieces = std::make_shared<std::vector<std::shared_ptr<Chess_Piece>>>(white_pieces);
+    passive_pieces = std::make_shared<std::vector<std::shared_ptr<Chess_Piece>>>(black_pieces);
+}
+
+
 int Game::handle_turn(const std::string &str_player_move) {
     std::shared_ptr<Move> move = std::make_shared<Move>(Move::process_move_syntax(str_player_move));
     if (!move->is_legal_move) {
@@ -85,7 +131,7 @@ void Game::clean_up_after_turn() {
     if (board_state[std::get<0>(black_king_pos)][std::get<1>(black_king_pos)] != -10) {
         for (const auto& piece : black_pieces) {
             if(piece->getPieceType() == 'K') {
-                white_king_pos = std::make_tuple(piece->get_row(), piece->get_col());
+                black_king_pos = std::make_tuple(piece->get_row(), piece->get_col());
             }
         }
     }
@@ -94,6 +140,8 @@ void Game::clean_up_after_turn() {
     passive_pieces = (active_player > 0) ? std::make_shared<std::vector<std::shared_ptr<Chess_Piece>>>(black_pieces) :std::make_shared<std::vector<std::shared_ptr<Chess_Piece>>>(white_pieces);
 }
 
+
+// Move Logic and Validation
 
 bool Game::consider_move(std::shared_ptr<Move> move) {
     if (!move->is_legal_move) {
@@ -440,47 +488,6 @@ void Game::execute_move(std::shared_ptr<Chess_Piece> piece, std::shared_ptr<Move
     }
 }
 
-Game::Game() {
-    last_move_status  = "---";
-
-    game_state = "running";
-    num_moves_played = 0;
-    active_player = 1;
-
-    white_king_pos = std::make_tuple(0, 4);
-    black_king_pos = std::make_tuple(7, 4);
-    
-    is_active_player_in_check = false;
-    is_passive_player_in_check = false;
-
-    masked_coords = std::make_shared<std::tuple<int,int>>(-1,-1);
-    en_passant_coords= std::make_shared<std::tuple<int,int>>(-1,-1);
-    en_passant_option = false;
-
-    has_black_king_moved = false;
-    has_white_king_moved = false;
-    has_white_a_rook_moved = false;
-    has_white_h_rook_moved = false;
-    has_black_a_rook_moved = false;
-    has_black_h_rook_moved = false;
-
-    for (int i = 0; i <= 7; i++) {
-        for (int j = 0; j <= 7; j++) {
-            if (board_state[i][j] != EE) { // Annahme: EE steht für ein leeres Feld
-                auto piece = create_piece(board_state[i][j], i, j);
-
-                if (board_state[i][j] > 0) {
-                    white_pieces.push_back(piece);
-                } else {
-                    black_pieces.push_back(piece);
-                }
-            }
-        }
-    }
-
-    active_pieces = std::make_shared<std::vector<std::shared_ptr<Chess_Piece>>>(white_pieces);
-    passive_pieces = std::make_shared<std::vector<std::shared_ptr<Chess_Piece>>>(black_pieces);
-}
 
 bool Game::check_castle(char castle_type) {
     auto active_king_pos = (active_player > 0) ? white_king_pos : black_king_pos;
@@ -921,16 +928,26 @@ std::vector<std::shared_ptr<Move>> Game::get_available_moves(std::shared_ptr<Che
     std::vector<std::shared_ptr<Move>> available_moves;
     std::vector<std::tuple<int, int, bool>> move_candidates = piece->get_available_coords_to_move_to(piece_owner, board_state);
     for (const auto& move_candidate : move_candidates) {
+        if (piece->getPieceType() == 'K') {
+        std::cout << "Move candidates for King:\n";
+        for (const auto& candidate : move_candidates) {
+            int row = std::get<0>(candidate);
+            int col = std::get<1>(candidate);
+            bool is_capture = std::get<2>(candidate);
+            std::cout << "Row: " << row << ", Col: " << col << ", Is Capture: " << std::boolalpha << is_capture << "\n";
+        }
+    }
         int row = std::get<0>(move_candidate);
         int col = std::get<1>(move_candidate);
         bool capture = std::get<2>(move_candidate);
         auto move = std::make_shared<Move>(Move(true, piece->get_row(), piece->get_col(), row, col, "", capture, false, piece->getPieceType()));
         if (piece->getPieceType() != 'K' && is_opponents_move_legal(piece, board_state, row,col)) {
             available_moves.push_back(move);
-        }
-        else if(piece->getPieceType() == 'K' && is_opponents_king_move_legal(piece, board_state, row, col)) {
+        } 
+        else if(piece->getPieceType() == 'K' && !is_own_king_in_check_after_move(piece, move, board_state)) {
             available_moves.push_back(move);
         }
+
     }
 
     if(piece->getPieceType() == 'K') {
@@ -975,7 +992,190 @@ std::list<std::vector<std::shared_ptr<Move>>> Game::get_all_available_moves() {
     return available_moves;
 }
 
+//
 
+
+
+std::vector<std::tuple<char, std::string, int, int>> Game::get_all_positions() {
+    std::vector<std::tuple<char, std::string, int, int>> positions;
+    for (const auto& piece : white_pieces) {
+        positions.emplace_back(piece->getPieceType(), piece->getColor(), piece->get_row(), piece->get_col());
+    }
+    for (const auto& piece : black_pieces) {
+        positions.emplace_back(piece->getPieceType(), piece->getColor(), piece->get_row(), piece->get_col());
+    }
+    return positions;
+}
+
+std::vector<std::tuple<char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> Game::get_player_moves(int player) {
+    std::vector<std::tuple<char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> moves;
+
+    auto pieces = (player > 0) ? white_pieces : black_pieces;
+    bool short_castle = false;
+    bool long_castle = false;
+    for (const auto& piece : pieces) {
+        std::vector<std::tuple<int, int>> piece_moves;
+        for (const auto& move : get_available_moves(piece, player)) {
+            if (move->getIsCastlingMove() == "")
+            {
+                piece_moves.emplace_back(move->row_target, move->col_target);
+            }
+            else{
+                if (move->getIsCastlingMove() == "short")
+                {
+                    short_castle = true;
+                }
+                if (move->getIsCastlingMove() == "long")
+                {
+                    long_castle = true;
+                }
+            }
+        }
+        moves.emplace_back(piece->getPieceType(),
+                           std::make_tuple(piece->get_row(), piece->get_col()),
+                           piece_moves);
+    }
+    if (long_castle)
+    {   
+        std::tuple<int,int> king_position = (player > 0) ? std::make_tuple(0,4) : std::make_tuple(7,4);
+        std::tuple<int,int> castle_coords = (player > 0) ? std::make_tuple(0,2) : std::make_tuple(7,2);
+        std::vector<std::tuple<int, int>> target = { castle_coords };
+        moves.emplace_back('K',
+                           king_position,
+                           target);
+    }
+        if (short_castle)
+    {   
+        std::tuple<int,int> king_position = (player > 0) ? std::make_tuple(0,4) : std::make_tuple(7,4);
+        std::tuple<int,int> castle_coords = (player > 0) ? std::make_tuple(0,6) : std::make_tuple(7,6);
+        std::vector<std::tuple<int, int>> target = { castle_coords };
+        moves.emplace_back('K',
+                           king_position,
+                            target);
+    }
+    return moves;
+}
+
+std::vector<std::vector<int>> Game::get_board_state() {
+    std::vector<std::vector<int>> state(8, std::vector<int>(8));
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            state[i][j] = board_state[i][j];
+        }
+    }
+    return state;
+}
+std::string Game::generate_move_notation(int start_row, int start_col, int target_row, int target_col) {
+    if (start_row < 0 || start_row >= 8 || start_col < 0 || start_col >= 8 ||
+        target_row < 0 || target_row >= 8 || target_col < 0 || target_col >= 8) {
+        return "Invalid move: Coordinates out of bounds";
+    }
+
+    int piece_value = std::abs(board_state[start_row][start_col]);
+    if (piece_value == EE) {
+        return "Invalid move: No piece at start position";
+    }
+
+    char piece_type;
+    if (piece_encoding.find(piece_value) != piece_encoding.end()) {
+        piece_type = piece_encoding[piece_value];
+    } else {
+        return "Invalid move: Unknown piece type";
+    }
+
+    // Check for castling
+    if (piece_type == 'K' && start_col == 4) {
+        if ((start_row == 0 || start_row == 7) && target_row == start_row) {
+            if (target_col == 2) {
+                return "O-O-O"; // Long castle
+            } else if (target_col == 6) {
+                return "O-O"; // Short castle
+            }
+        }
+    }
+
+    // Determine if the move is a capture
+    bool is_capture = (board_state[target_row][target_col] != EE &&
+                       (board_state[target_row][target_col] * piece_value < 0));
+
+    // Create a move object to generate algebraic notation
+    Move move;
+    move.setIsLegalMove(true);
+    move.setPieceToMove(piece_type);
+    move.set_row_CoordStart(start_row);
+    move.set_col_CoordStart(start_col);
+    move.set_row_CoordTarget(target_row);
+    move.set_col_CoordTarget(target_col);
+    move.setIsCapturingMove(is_capture);
+
+    return move.get_algebraic_chess_notation();
+}
+
+
+
+std::vector<std::pair<int, std::pair<std::string, std::string>>> Game::get_history_vector() const {
+    std::vector<std::pair<int, std::pair<std::string, std::string>>> history_vector;
+    int move_number = 1;
+
+    for (size_t i = 0; i < game_history_str.size(); i += 2) {
+        std::string first_move = game_history_str[i];
+        std::string second_move = (i + 1 < game_history_str.size()) ? game_history_str[i + 1] : "";
+        history_vector.emplace_back(move_number, std::make_pair(first_move, second_move));
+        move_number++;
+    }
+
+    return history_vector;
+}
+
+
+
+
+std::unordered_map<int, std::string> Game::valueToPiece = {
+    {EE, ".."},
+    {BK, "BK"},
+    {BQ, "BQ"},
+    {BB, "BB"},
+    {BN, "BN"},
+    {BR, "BR"},
+    {BP, "BP"},
+    {WK, "WK"},
+    {WQ, "WQ"},
+    {WB, "WB"},
+    {WN, "WN"},
+    {WR, "WR"},
+    {WP, "WP"}
+};
+
+std::unordered_map<std::string, int> Game::pieceToValue = {
+    {"EMPTY", EE},
+    {"BK", BK},
+    {"BQ", BQ},
+    {"BB", BB},
+    {"BN", BN},
+    {"BR", BR},
+    {"BP", BP},
+    {"WK", WK},
+    {"WQ", WQ},
+    {"WB", WB},
+    {"WN", WN},
+    {"WR", WR},
+    {"WP", WP}
+};
+
+std::unordered_map<int, char> Game::piece_encoding = {
+    {1, 'P'},
+    {3, 'N'},
+    {4, 'B'},
+    {5, 'R'},
+    {9, 'Q'},
+    {10, 'K'}
+};
+
+
+
+
+
+// Debug
 
 
 void Game::print_board_state() const {
@@ -1051,74 +1251,3 @@ void Game::print_history() {
         move_number++;
     }
 }
-
-
-std::vector<std::tuple<char, std::string, int, int>> Game::get_all_positions() {
-    std::vector<std::tuple<char, std::string, int, int>> positions;
-    for (const auto& piece : white_pieces) {
-        positions.emplace_back(piece->getPieceType(), piece->getColor(), piece->get_row(), piece->get_col());
-    }
-    for (const auto& piece : black_pieces) {
-        positions.emplace_back(piece->getPieceType(), piece->getColor(), piece->get_row(), piece->get_col());
-    }
-    return positions;
-}
-
-std::vector<std::tuple<std::string, char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> Game::get_player_moves(int player) {
-    std::vector<std::tuple<std::string, char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> moves;
-
-    auto pieces = (player == 1) ? white_pieces : black_pieces;
-
-    for (const auto& piece : pieces) {
-        std::vector<std::tuple<int, int>> piece_moves;
-        for (const auto& move : get_available_moves(piece, player)) {
-            piece_moves.emplace_back(move->row_target, move->col_target);
-        }
-        moves.emplace_back(piece->getColor(), piece->getPieceType(),
-                           std::make_tuple(piece->get_row(), piece->get_col()),
-                           piece_moves);
-    }
-    return moves;
-}
-
-std::vector<std::vector<int>> Game::get_board_state() {
-    std::vector<std::vector<int>> state(8, std::vector<int>(8));
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 8; ++j) {
-            state[i][j] = board_state[i][j];
-        }
-    }
-    return state;
-}
-
-std::unordered_map<int, std::string> Game::valueToPiece = {
-    {EE, ".."},
-    {BK, "BK"},
-    {BQ, "BQ"},
-    {BB, "BB"},
-    {BN, "BN"},
-    {BR, "BR"},
-    {BP, "BP"},
-    {WK, "WK"},
-    {WQ, "WQ"},
-    {WB, "WB"},
-    {WN, "WN"},
-    {WR, "WR"},
-    {WP, "WP"}
-};
-
-std::unordered_map<std::string, int> Game::pieceToValue = {
-    {"EMPTY", EE},
-    {"BK", BK},
-    {"BQ", BQ},
-    {"BB", BB},
-    {"BN", BN},
-    {"BR", BR},
-    {"BP", BP},
-    {"WK", WK},
-    {"WQ", WQ},
-    {"WB", WB},
-    {"WN", WN},
-    {"WR", WR},
-    {"WP", WP}
-};

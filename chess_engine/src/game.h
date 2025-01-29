@@ -68,7 +68,8 @@ public:
 
     static std::unordered_map<int, std::string> valueToPiece;
     static std::unordered_map<std::string, int> pieceToValue;
-
+    static std::unordered_map<int, char> piece_encoding;
+    
     std::vector<std::shared_ptr<Move>> get_available_moves(std::shared_ptr<Chess_Piece> piece, int piece_owner);
     std::list<std::vector<std::shared_ptr<Move>>> get_all_available_moves();
 
@@ -91,9 +92,10 @@ public:
     void print_board_state() const;
 
     std::vector<std::tuple<char, std::string, int, int>> get_all_positions();
-    std::vector<std::tuple<std::string, char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> get_player_moves(int player);
+    std::vector<std::tuple<char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> get_player_moves(int player);
     std::vector<std::vector<int>> get_board_state();
-
+    std::string generate_move_notation(int start_row, int start_col, int target_row, int target_col);
+    std::vector<std::pair<int, std::pair<std::string, std::string>>> get_history_vector() const;
 
 private:
     void clean_up_after_turn();
@@ -144,7 +146,6 @@ private:
     bool has_piece_available_move(std::shared_ptr<Chess_Piece> piece, int piece_owner);
 private:
     BoardHashMap game_history_hash_map;
-
     int board_state[8][8] = {
         {WR, WN, WB, WQ, WK, WB, WN, WR},
         {WP, WP, WP, WP, WP, WP, WP, WP},

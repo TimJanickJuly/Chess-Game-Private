@@ -313,7 +313,7 @@ std::vector<std::tuple<int, int, bool>> Chess_Piece::get_available_coords_to_mov
                 int new_col = current_col + col_offset;
 
                 while (new_row >= 0 && new_row < 8 && new_col >= 0 && new_col < 8) {
-                    if (is_move_possible(board_state, new_row, new_col, false, false)) {
+                    if (is_move_possible(board_state, new_row, new_col, true, false)) {
                         koord_candidates_and_is_capture.push_back(std::make_tuple(new_row, new_col, (board_state[new_row][new_col] != 0)));
                         if (board_state[new_row][new_col] != 0) {
                             break; // Stop if there is a piece on the square

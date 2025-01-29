@@ -34,26 +34,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def chess_move_notation(start_row, end_row, start_col, end_col, game):
-    position_map = {7: 'a', 6: 'b', 5: 'c', 4: 'd', 3: 'e', 2: 'f', 1: 'g', 0: 'h'}
-    
-    start_square = position_map[start_col] + start_row
-    end_square = position_map[end_col] + end_row
-
-    all_positions = game.get_all_positions()
-    piece = None
-
-    for p, color, row, col in all_positions:
-        if row == start_row and col == start_col:
-            piece = p
-            break
-
-    if piece is None:
-        return f"Invalid move: no piece at {start_square}"
-    
-    piece_notation = '' if piece == 'P' else piece
-    return f"{piece_notation}{start_square}{end_square}"
-
 
 class GameWrapper:
     def __init__(self):
@@ -223,8 +203,9 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, player_id: str)
             if data["action"] == "move":
                 move = data.get("move")
                 if move:
+                    print("HERE")
                     print(move)
-                    move = chess_move_notation(move["start"]["row"],move["start"]["col"], move["end"]["row"], move["end"]["row"], game_wrapper.game_instance)
+                    move = game_wrapper.game_instance.get_algebraic_chess_notation(7-move["start"]["row"], move["start"]["col"], 7-move["end"]["row"], move["end"]["col"])
                     print(move)
                     game_wrapper.handle_move(move)
                 state = game_wrapper.get_state()

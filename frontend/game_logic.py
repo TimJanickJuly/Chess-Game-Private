@@ -100,18 +100,12 @@ class GameState:
         print("searching for", [(7 - row_start) % 8, col_start])
         print(row_start, col_start, row_end, col_end, self.own_color, row_start and col_start and row_end and col_end and self.own_color)
         if row_start is not None and col_start is not None and row_end is not None and col_end is not None and self.own_color:
-            print("hello")
-            for _, piece_type, start_square, end_squares in self.legal_moves.get(self.own_color, []):
-                print(self.legal_moves.get(self.own_color, []))
+            for piece_type, start_square, end_squares in self.legal_moves.get(self.own_color, []):
                 print(piece_type, start_square, end_squares)
                 if start_square == [(7 - row_start) % 8, col_start]:
-                    print("FOUND START")
                     if [(7 - row_end) % 8, col_end] in end_squares:
                         print("move is legal!")
                         return True
-                    else:
-                        print("MOVE NOT FOUND IN LIST OF LEGAL MOVES")
-                        return False
         
 class WebSocketHandler:
     def __init__(self, game_state):
