@@ -2,8 +2,10 @@ from browser import document, html, ajax, websocket, alert, window, bind
 import json
 
 class Config:
-    BASE_URL = "https://63.176.91.88:8000"
-    WS_URL = "wss://63.176.91.88:8000/ws"
+    BASE_URL = f"http://{window.location.hostname}:8000"
+    WS_URL = f"ws://{window.location.hostname}:8000/ws"
+
+
 class GameState:
     def __init__(self):
         self.text = "Waiting for game to start..."
@@ -24,7 +26,7 @@ class GameState:
         self.legal_moves = []
         self.player_name = ""
         self.player_color = None
-        self.game_id = None
+        self.game_id = Nones
         self.num_moves_played = 0
         self.active_player = ""
         self.players = []
@@ -122,7 +124,7 @@ class WebSocketHandler:
             return
 
         try:
-            self.socket = websocket.WebSocket(f"{WS_URL}/{self.game_state.game_id}/{self.game_state.player_name}")
+            self.socket = websocket.WebSocket(f"{Config.WS_URL}/{self.game_state.game_id}/{self.game_state.player_name}")
             self.socket.bind("open", self.on_open)
             self.socket.bind("message", self.on_message)
             self.socket.bind("close", self.on_close)
