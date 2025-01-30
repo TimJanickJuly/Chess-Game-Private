@@ -1,0 +1,10 @@
+Rewrite backend
+generalzie frontend ip
+refactor chess_engine
+
+implement database for active games
+implement logging
+implement reconnections for active games
+dockerize
+aws deployment more professional <- tutorials
+write read me <- short
