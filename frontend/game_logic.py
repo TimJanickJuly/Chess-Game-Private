@@ -26,7 +26,7 @@ class GameState:
         self.legal_moves = []
         self.player_name = ""
         self.player_color = None
-        self.game_id = Nones
+        self.game_id = None
         self.num_moves_played = 0
         self.active_player = ""
         self.players = []
