@@ -1,10 +1,13 @@
 from browser import document, html, ajax, websocket, alert, window, bind
 import json
 
-class Config:
-    BASE_URL = f"http://{window.location.hostname}:8000"
-    WS_URL = f"ws://{window.location.hostname}:8000/ws"
+#class Config:
+#    BASE_URL = f"http://{window.location.hostname}:8000"
+#    WS_URL = f"ws://{window.location.hostname}:8000/ws"
 
+class Config:
+    BASE_URL = "http://127.0.0.1:8000"
+    WS_URL = "ws://127.0.0.1:8000/ws"
 
 class GameState:
     def __init__(self):
@@ -26,7 +29,7 @@ class GameState:
         self.legal_moves = []
         self.player_name = ""
         self.player_color = None
-        self.game_id = Nones
+        self.game_id = None
         self.num_moves_played = 0
         self.active_player = ""
         self.players = []
@@ -46,17 +49,21 @@ class GameState:
         self.player_colors = response.get("player_colors", self.player_colors)
         self.both_joined = response.get("both_joined", self.both_joined)
         self.board_state = response.get("board_state", self.board_state)
-        self.legal_moves = response.get("legal_moves", self.legal_moves)
+        # Prüfen, ob legal_moves als Dictionary übermittelt wurden und extrahieren
+        legal_moves_resp = response.get("legal_moves", self.legal_moves)
+        self.legal_moves = legal_moves_resp["legal_moves"].get(self.player_name, [])
+
         if not self.own_color:
             self.own_color = self.player_colors.get(self.player_name, None)
         if not self.both_joined:
             self.text = "Waiting for Opponent"
         else:
             self.text = f"It's {self.player_colors[self.active_player]}'s turn!"
-        if response.get('game_state', None) == 'black wins' or response.get('game_state', None) == 'white wins' or response.get('game_state', None) == 'stalemate':
+        if response.get('game_state', None) in ['black wins', 'white wins', 'stalemate']:
             self.text = response.get('game_state', None)
         print("Updated Game state: ")
         self.debug_state()
+
         
     def debug_state(self):
         print("GameState Debug:")
@@ -104,7 +111,7 @@ class GameState:
         print("searching for", [(7 - row_start) % 8, col_start])
         print(row_start, col_start, row_end, col_end, self.own_color, row_start and col_start and row_end and col_end and self.own_color)
         if row_start is not None and col_start is not None and row_end is not None and col_end is not None and self.own_color:
-            for piece_type, start_square, end_squares in self.legal_moves.get(self.own_color, []):
+            for piece_type, start_square, end_squares in self.legal_moves:
                 print(piece_type, start_square, end_squares)
                 if start_square == [(7 - row_start) % 8, col_start]:
                     if [(7 - row_end) % 8, col_end] in end_squares:
@@ -124,6 +131,7 @@ class WebSocketHandler:
             return
 
         try:
+            # Aufbau der Verbindung entsprechend des Backend-Pfads /ws/{game_id}/{player_id}
             self.socket = websocket.WebSocket(f"{Config.WS_URL}/{self.game_state.game_id}/{self.game_state.player_name}")
             self.socket.bind("open", self.on_open)
             self.socket.bind("message", self.on_message)
@@ -139,7 +147,8 @@ class WebSocketHandler:
         print("Received message")
         try:
             data = json.loads(event.data)
-            if data.get("event") == "state" or data.get("event") == "update":
+            # Neben den bekannten Events ("state" und "update") können auch "error" zurückkommen.
+            if data.get("event") in ["state", "update"]:
                 state = data.get("state", {})
                 if not state:
                     print("Invalid state data received.")
@@ -148,6 +157,8 @@ class WebSocketHandler:
                 self.game_state.update_from_response(state)
                 UI.update_board_state(self.game_state.board_state)
                 UI.update_game_state(self.game_state.text)
+            elif data.get("event") == "error":
+                print(f"Error from server: {data.get('detail')}")
             else:
                 print(f"Unhandled event type: {data.get('event')}")
         except json.JSONDecodeError:
@@ -158,9 +169,8 @@ class WebSocketHandler:
     def on_close(self, event):
         self.socket_open = False
         print("WebSocket disconnected. Attempting to reconnect in 5 seconds...")
-        window.setTimeout(self.connect, 5000)  # Verzögere den Reconnect-Versuch um 5 Sekunden
+        window.setTimeout(self.connect, 5000)
 
-    
     def request_game_state(self):
         if not self.socket or not self.socket_open:
             print("WebSocket connection is not active. Cannot request game state.")
@@ -171,39 +181,44 @@ class WebSocketHandler:
         except Exception as e:
             print(f"Failed to request game state: {e}")
 
-
     def send_move(self, start, end):
         if not self.socket or not self.socket_open:
             print("WebSocket connection is not active. Move cannot be sent.")
-            # Optional: Füge eine Warteschlange hinzu, um Züge später zu senden
             return
 
         try:
             move_data = {
                 "action": "move",
-                "move": {"start": {"row": start[0], "col": start[1]}, "end": {"row": end[0], "col": end[1]}}
+                "move": {
+                    "move_type": "coordinates",
+                    "start_row": start[0],
+                    "start_col": start[1],
+                    "target_row": end[0],
+                    "target_col": end[1]
+                }
             }
             self.socket.send(json.dumps(move_data))
-            print("Move sucessfully")
+            print("Move successfully sent.")
         except Exception as e:
-            print(f"Failed to send move: {e}")  
-            
-            
+            print(f"Failed to send move: {e}")
 
 class API:
     @staticmethod
     def can_i_join(game_id, callback):
-        url = Config.BASE_URL + f"/game_info/{game_id}"
+        # Falls der Spielername noch nicht gesetzt ist, diesen generieren.
+        if not game_state.player_name:
+            game_state.player_name = game_state.generate_player_name()
+        # URL entsprechend des GET-Endpunkts: /game_info/{game_id}/{player_id}
+        url = Config.BASE_URL + f"/game_info/{game_id}/{game_state.player_name}"
         print(f"Asking whether I can join: {url}")
 
-        # Asynchroner Ajax-Request
         def handle_response(response):
             if response.status == 200:
                 try:
                     game_info = json.loads(response.text)
-                    print(game_info)
+                    print("Game info received:", game_info)
                     joinable = not game_info.get("both_joined", False)
-                    callback(joinable)  # Ergebnis an die Callback-Funktion übergeben
+                    callback(joinable)
                 except Exception as e:
                     print(f"Error processing game info: {e}")
                     callback(False)
@@ -211,9 +226,8 @@ class API:
                 print(f"Error: HTTP {response.status}")
                 callback(False)
 
-        # ajax.get ohne `oncomplete` wird standardmäßig asynchron verarbeitet
         ajax.get(url, oncomplete=handle_response)
-        
+
     @staticmethod
     def create_game(game_state):
         url = Config.BASE_URL + "/create_game"
@@ -234,15 +248,15 @@ class API:
                     return
 
                 print(f"Game created with ID: {game_state.game_id}")
+                # Nach Erstellen des Spiels wird der Beitritt initiiert.
                 API.join_game(game_state, callback=lambda: (
                     socket_handler.connect(),
                     UI.display_game_id(game_state.game_id)
-                    ))
+                ))
             except json.JSONDecodeError:
                 print("Failed to parse server response as JSON.")
         else:
             print(f"Failed to create game: HTTP {req.status}")
-
 
     @staticmethod
     def join_game(game_state, callback=None):
@@ -250,6 +264,7 @@ class API:
             print("Cannot join game: Game ID or Player Name is missing.")
             return
 
+        # URL für den POST-Endpunkt /join_game/{game_id} und Übergabe des JSON-Bodys mit player_id
         url = Config.BASE_URL + f"/join_game/{game_state.game_id}"
         data = {"player_id": game_state.player_name}
 
@@ -272,7 +287,6 @@ class API:
             headers={"Content-Type": "application/json"},
             oncomplete=handle_response
         )
-    
 
 
 class EventBindings:
@@ -304,10 +318,13 @@ class EventBindings:
                 return
 
             game_id = input_field.value.strip()
-            
             print("Trying to join: ", game_id)
-            
+
             if game_id:
+                # Generiere hier sicherheitshalber auch den Spielernamen, falls nicht schon gesetzt.
+                if not game_state.player_name:
+                    game_state.player_name = game_state.generate_player_name()
+
                 def handle_can_i_join_response(joinable):
                     if joinable:
                         print(f"Game ID entered: {game_id}")
@@ -320,8 +337,6 @@ class EventBindings:
                 API.can_i_join(game_id, callback=handle_can_i_join_response)
             else:
                 alert("Please enter a valid Game ID!")
-
-
 
 
 class UI:

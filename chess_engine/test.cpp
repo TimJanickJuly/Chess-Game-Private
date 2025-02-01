@@ -39,8 +39,16 @@ Test::Test() {
     test_data_vector.emplace_back(
         "stalemate",
         std::vector<std::string>{
-            "e4", "e5", "f4", "Nf6", "fxe5", "d5", "exd5", "Bh3", "Nxh3", "Bd6", "exf6", "Nc6", "dxc6", "Qe7+", "fxe7", "Rd8", "Qg4", "Kxe7", "Qxg7", "b5", "Qxh8", "a5", "a4", "Bxh2", "Rxh2", "bxa4", "Rxa4", "Ke6", "Qxd8", "h5", "Nf2", "h4", "Qd7+", "Kf6", "Rg4", "h3", "Nd3", "hxg2", "Bxg2", "a4", "b3", "axb3", "cxb3"
-        },
+            "e4", "e5", "f4", "Nf6", "fxe5", "d5", "exd5", "Nxd5", "Bc4", "Bh3", 
+            "Bxd5", "Qxd5", "gxh3", "Qxh1", "Qf3", "Nc6", "Nc3", "Bc5", "Qxh1", "f6", 
+            "exf6", "a5", "b4", "a4", "a3", "b5", "Qxc6+", "Kf7", "Qe6+", "Kxe6", 
+            "Nf3", "gxf6", "Bb2", "Kf5", "h4", "c6", "h5", "Rhe8+", "Kf1", "Re1+", 
+            "Kxe1", "Re8+", "Kf1", "Re1+", "Kxe1", "h6", "Ng1", "Bd4", "Kf1", "Be5", 
+            "Kg2", "Bf4", "Rf1", "c5", "Kf3", "c4", "d4", "Bd6", "d5", "Bf4", "Nge2", 
+            "Bd6", "Ng1", "Bf4", "Nh3", "Bd6", "Ke2+", "Bf4", "Kd1", "Kg4", "Ke2", 
+            "Kf5", "Kf2", "Bd6", "Ne2", "Bc7", "Bc3", "Bd6", "Bd4", "Bf4", "Nc3", 
+            "Bd6", "Kf3", "Bf4", "Kf2", "Bg5", "Kg3+", "Bf4+", "Kh4"
+            },
         "stalemate"
     );
 

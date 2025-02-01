@@ -18,8 +18,8 @@ bool Move::getIsMate() const { return is_mate; }
 
 // Setter-Methoden
 void Move::setIsLegalMove(bool legal) { is_legal_move = legal; }
-void Move::set_row_CoordStart(int x_start) { col_start = x_start; }
-void Move::set_col_CoordStart(int y_start) { row_start = y_start; }
+void Move::set_row_CoordStart(int x_start) { row_start = x_start; }
+void Move::set_col_CoordStart(int y_start) { col_start = y_start; }
 void Move::set_row_CoordTarget(int x_target) { row_target = x_target; }
 void Move::set_col_CoordTarget(int y_target) { col_target = y_target; }
 void Move::setIsCastlingMove(std::string castling) { is_castling_move = castling; }

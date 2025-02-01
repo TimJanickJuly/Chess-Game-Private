@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <list>
 #include <utility>
+#include <memory>
+#include <sstream>
 #include "BoardHashMap.h"
 
 #define EE 0
@@ -63,6 +65,8 @@ public:
 
     std::shared_ptr<std::tuple<int,int>> en_passant_coords;
     bool en_passant_option;
+    int en_passant_counter;
+    int en_passant_activation_move;
 
     std::string last_move_status;
 
@@ -81,7 +85,7 @@ public:
     bool is_own_king_in_check_after_move(
         const std::shared_ptr<Chess_Piece> piece_to_move,
         std::shared_ptr<Move> move,
-        const int board_state[8][8]
+        int board_state[8][8]
     );
 
     bool is_stalemate();
@@ -90,6 +94,33 @@ public:
     void print_history();
     void print_pieces_debug();
     void print_board_state() const;
+
+    
+    struct GameState {
+        int active_player;
+        std::vector<std::string> game_history_str;
+        std::string game_state;
+        int num_moves_played;
+        std::tuple<int, int> white_king_pos;
+        std::tuple<int, int> black_king_pos;
+        int board_state[8][8];
+
+        bool is_active_player_in_check;
+        bool is_passive_player_in_check;
+
+        bool has_black_king_moved;
+        bool has_white_king_moved;
+        bool has_white_a_rook_moved;
+        bool has_white_h_rook_moved;
+        bool has_black_a_rook_moved;
+        bool has_black_h_rook_moved;
+
+        std::shared_ptr<std::tuple<int,int>> en_passant_coords;
+        bool en_passant_option;
+    };
+
+    std::string save_game_state() const;
+    void restore_game_state(const std::string& state_str);
 
     std::vector<std::tuple<char, std::string, int, int>> get_all_positions();
     std::vector<std::tuple<char, std::tuple<int, int>, std::vector<std::tuple<int, int>>>> get_player_moves(int player);
@@ -157,6 +188,7 @@ private:
         {BR, BN, BB, BQ, BK, BB, BN, BR}
     };
     std::shared_ptr<std::tuple<int,int>> masked_coords;
+
 
 };
 #endif // BOARD_H

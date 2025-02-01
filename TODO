@@ -1,5 +1,6 @@
 Rewrite backend
 generalzie frontend ip
+fix discovered check bug
 refactor chess_engine
 
 implement database for active games

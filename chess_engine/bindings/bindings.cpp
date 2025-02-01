@@ -27,5 +27,7 @@ PYBIND11_MODULE(chess_engine, m) {
         .def("print_history", &Game::print_history)
         .def("print_board_state", &Game::print_board_state)
         .def("get_game_history", &Game::get_history_vector)
-        .def("get_algebraic_chess_notation", &Game::generate_move_notation);
+        .def("get_algebraic_chess_notation", &Game::generate_move_notation)
+        .def("save_game_state", &Game::save_game_state)
+        .def("load_game_state", &Game::restore_game_state);
 }

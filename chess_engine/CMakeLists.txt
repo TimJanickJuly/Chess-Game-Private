@@ -14,8 +14,10 @@ endif()
 # Pybind11 suchen
 find_package(pybind11 REQUIRED)
 
-# Quell- und Header-Dateien
-set(SOURCE_FILES
+# -------------------------------
+# Python-Modul (chess_engine) bauen
+# -------------------------------
+set(MODULE_SOURCE_FILES
     bindings/bindings.cpp
     src/game.cpp
     src/Chess_Piece.cpp
@@ -23,37 +25,64 @@ set(SOURCE_FILES
     src/BoardHashMap.cpp
 )
 
-# Pybind11-Modul definieren
-pybind11_add_module(chess_engine ${SOURCE_FILES})
+pybind11_add_module(chess_engine ${MODULE_SOURCE_FILES})
 
-# Ziel-Eigenschaften festlegen
 if(WIN32)
     # Für Windows: .pyd-Datei
     set_target_properties(chess_engine PROPERTIES
         PREFIX ""
         SUFFIX ".pyd"                           # Python-kompatible Modul-Endung
-        OUTPUT_NAME "chess_engine"              # Sicherstellen, dass der Name korrekt bleibt
+        OUTPUT_NAME "chess_engine"              # Name beibehalten
     )
 elseif(UNIX)
     # Für Unix/Linux: .so-Datei
     set_target_properties(chess_engine PROPERTIES
         PREFIX ""
         SUFFIX ".so"                            # Python-kompatible Modul-Endung
-        OUTPUT_NAME "chess_engine"              # Sicherstellen, dass der Name korrekt bleibt
+        OUTPUT_NAME "chess_engine"              # Name beibehalten
     )
 else()
     message(FATAL_ERROR "Unbekannte Plattform. Modul-Endung nicht festgelegt.")
 endif()
 
-# Include-Verzeichnisse hinzufügen
 target_include_directories(chess_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-# Zusätzliche Compiler-Warnungen aktivieren (optional, für Debugging)
 if(MSVC)
     target_compile_options(chess_engine PRIVATE /W4)
 else()
     target_compile_options(chess_engine PRIVATE -Wall -Wextra -pedantic)
 endif()
 
-# Ausgabe verifizieren
 message(STATUS "CMake project configured for Python module 'chess_engine'")
+
+# ------------------------------------
+# Executable (main.exe) zum Testen bauen
+# ------------------------------------
+# Setze den Ausgabepfad für Executables (z. B. im Ordner "bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
+set(EXECUTABLE_SOURCES
+    main.cpp
+    src/game.cpp
+    src/game.h
+    src/move.h
+    src/Move.cpp
+    src/Chess_Piece.cpp
+    src/Chess_Piece.h
+    test.h
+    test.cpp
+    src/BoardHashMap.cpp
+    src/BoardHashMap.h
+)
+
+add_executable(main ${EXECUTABLE_SOURCES})
+
+target_include_directories(main PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+if(MSVC)
+    target_compile_options(main PRIVATE /W4)
+else()
+    target_compile_options(main PRIVATE -Wall -Wextra -pedantic)
+endif()
+
+message(STATUS "CMake project configured for executable 'main'")
