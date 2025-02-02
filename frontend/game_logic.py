@@ -36,10 +36,12 @@ class GameState:
         self.player_colors = {}
         self.both_joined = False
         self.piece_encoding = {
-            -10: "bK", -9: "bQ", -5: "bR", -4: "bB", -3: "bN", -1: "bP", 
+            -10: "bK", -9: "bQ", -5: "bR", -4: "bB", -3: "bN", -1: "bP",
             0: "empty",
             1: "wP", 3: "wN", 4: "wB", 5: "wR", 9: "wQ", 10: "wK"
         }
+        self.remaining_time = {}
+        self.game_history = []
 
     def update_from_response(self, response):
         self.game_status = response.get("game_state", self.game_status)
@@ -49,10 +51,10 @@ class GameState:
         self.player_colors = response.get("player_colors", self.player_colors)
         self.both_joined = response.get("both_joined", self.both_joined)
         self.board_state = response.get("board_state", self.board_state)
-        # Prüfen, ob legal_moves als Dictionary übermittelt wurden und extrahieren
+        self.remaining_time = response.get("remaining_time", self.remaining_time)
+        self.game_history = response.get("game_history", self.game_history)
         legal_moves_resp = response.get("legal_moves", self.legal_moves)
         self.legal_moves = legal_moves_resp["legal_moves"].get(self.player_name, [])
-
         if not self.own_color:
             self.own_color = self.player_colors.get(self.player_name, None)
         if not self.both_joined:
@@ -63,7 +65,6 @@ class GameState:
             self.text = response.get('game_state', None)
         print("Updated Game state: ")
         self.debug_state()
-
         
     def debug_state(self):
         print("GameState Debug:")
@@ -338,31 +339,152 @@ class EventBindings:
             else:
                 alert("Please enter a valid Game ID!")
 
-
 class UI:
+    timer_interval_id = None
+    last_timer_update = None
+
+    @staticmethod
+    def ensure_remaining_time_display():
+        container = document.getElementById("remainingTimeDisplay")
+        if not container:
+            container = html.DIV(Id="remainingTimeDisplay")
+            container.style.position = "absolute"
+            container.style.top = "50px"
+            container.style.right = "50px"
+            container.style.padding = "10px"
+            container.style.border = "1px solid #ccc"
+            container.style.backgroundColor = "#fff"
+            document <= container
+
+    @staticmethod
+    def update_remaining_time_display():
+        container = document.getElementById("remainingTimeDisplay")
+        if container:
+            text = "Remaining Time:\n"
+            active_color = game_state.player_colors.get(game_state.active_player, None)
+            for color, time in game_state.remaining_time.items():
+                if color == active_color:
+                    text += f"{color} (active): {time:.1f} s\n"
+                else:
+                    text += f"{color}: {time:.1f} s\n"
+            container.text = text
+
+    @staticmethod
+    def start_timer():
+        if UI.timer_interval_id is None:
+            UI.last_timer_update = window.performance.now()
+            UI.timer_interval_id = window.setInterval(UI.tick_timer, 1000)
+
+    @staticmethod
+    def tick_timer():
+        now = window.performance.now()
+        elapsed = (now - UI.last_timer_update) / 1000.0
+        UI.last_timer_update = now
+        if game_state.remaining_time and game_state.player_colors:
+            active_color = game_state.player_colors.get(game_state.active_player)
+            if active_color in game_state.remaining_time:
+                game_state.remaining_time[active_color] = max(0, game_state.remaining_time[active_color] - elapsed)
+        UI.update_remaining_time_display()
+
+    @staticmethod
+    def create_game_area():
+        board = document["board"]
+        board_parent = board.parentElement
+        game_area = html.DIV(Id="gameArea")
+        game_area.style.display = "flex"
+        game_area.style.justifyContent = "center"
+        game_area.style.alignItems = "flex-start"
+        board.style.display = "grid"
+        board.style.gridTemplateRows = board.style.gridTemplateColumns = "repeat(8, 60px)"
+        game_area <= board
+        history_container = UI.create_game_history_container()
+        if history_container:
+            game_area <= history_container
+        board_parent <= game_area
+
     @staticmethod
     def create_chessboard():
-        board = document["board"] 
+        board = document["board"]
         if not board:
             print("Error: Chessboard container not found in the DOM.")
             return
-
-        board.style.display = "grid"
-        board.style.gridTemplateRows = board.style.gridTemplateColumns = "repeat(8, 60px)"
         colors = ["white", "black"]
-
+        board.clear()
         for row in range(8):
             for col in range(8):
                 color = colors[(row + col) % 2]
                 square = html.DIV(Class=f"square {color}", Id=f"{row}{col}")
                 board <= square
-
         for btn_id in ["createGameBtn", "showInputBtn", "gameIdInput"]:
-            element = document[btn_id]  # Auch hier wird document[...]-Syntax verwendet
+            element = document[btn_id]
             if element:
                 element.style.display = "none"
             else:
                 print(f"Warning: Element '{btn_id}' not found in the DOM.")
+        UI.ensure_remaining_time_display()
+        UI.start_timer()
+        UI.create_game_area()
+
+    @staticmethod
+    def create_game_history_container():
+        if "gameHistoryContainer" in document:
+            return
+        container = html.DIV(Id="gameHistoryContainer")
+        container.style.display = "inline-block"
+        container.style.verticalAlign = "top"
+        container.style.marginLeft = "20px"
+        container.style.width = "200px"
+        container.style.border = "1px solid #ccc"
+        container.style.backgroundColor = "#fff"
+        container.style.padding = "10px"
+        container.style.fontSize = "16px"
+        container.style.fontFamily = "Arial, sans-serif"
+        header = html.H3("Game History")
+        header.style.marginTop = "0"
+        container <= header
+        table = html.TABLE(Id="gameHistoryTable")
+        table.style.width = "100%"
+        container <= table
+        return container
+
+    
+    @staticmethod
+    def update_game_history():
+        if "gameHistoryContainer" not in document:
+            return
+        container = document["gameHistoryContainer"]
+        table = document["gameHistoryTable"]
+        # Leere zunächst die Tabelle
+        while table.firstChild:
+            table.removeChild(table.firstChild)
+        # Fülle die Tabelle mit den Game History-Einträgen
+        for entry in game_state.game_history:
+            move_number = entry[0]
+            moves = entry[1]
+            row = html.TR()
+            move_num_cell = html.TD(f"{move_number}.")
+            move_num_cell.style.width = "30px"
+            row <= move_num_cell
+            white_move = moves[0] if len(moves) > 0 else ""
+            black_move = moves[1] if len(moves) > 1 else ""
+            moves_cell = html.TD(f"{white_move} {black_move}")
+            row <= moves_cell
+            table <= row
+
+        # Dynamische Schriftgrößenberechnung:
+        def compute_font_size(num_moves):
+            max_size = 16  # maximale Schriftgröße in px
+            min_size = 8   # minimale Schriftgröße in px
+            threshold = 15 # ab hier wird reduziert
+            if num_moves <= threshold:
+                return max_size
+            # Linearer Abfall: Für jeden Zug oberhalb des Schwellenwerts wird die Größe um 0.4px reduziert
+            new_size = max(max_size - (num_moves - threshold) * 0.4, min_size)
+            return new_size
+
+        new_font_size = compute_font_size(len(game_state.game_history))
+        container.style.fontSize = f"{new_font_size}px"
+
 
     @staticmethod
     def update_game_state(new_state):
@@ -374,19 +496,18 @@ class UI:
 
     @staticmethod
     def place_piece(row, col, piece):
-        print("Piece placed")
         position = f"{row}{col}"
         square = document[position]
         if not square:
             print(f"Error: Square {position} not found in the DOM.")
             return
-        
-        def has_piece(square):
-            for child in square.children:
+
+        def has_piece(sq):
+            for child in sq.children:
                 if child.tagName.lower() == "img" and "piece" in child.attrs.get("class", "").split():
                     return True
             return False
-                       
+
         if has_piece(square):
             for child in list(square.children):
                 if child.tagName.lower() == "img" and "piece" in child.attrs.get("class", "").split():
@@ -401,24 +522,21 @@ class UI:
         if not board_state or len(board_state) != 8 or any(len(row) != 8 for row in board_state):
             print("Error: Invalid board_state provided.")
             return
-
         flipped = game_state.own_color == "black"
-
         for row in range(8):
             for col in range(8):
                 if flipped:
-                    display_row = 7 - row  # Reihen umdrehen
-                    display_col = 7 - col  # Spalten umdrehen
+                    display_row = 7 - row
+                    display_col = 7 - col
                 else:
                     display_row = row
                     display_col = col
-
                 piece = game_state.piece_encoding.get(board_state[row][col])
                 if piece is None and board_state[row][col] != 0:
                     print(f"Warning: Unrecognized piece code at ({row}, {col}).")
-                
                 UI.place_piece(display_row, display_col, piece)
-
+        UI.update_remaining_time_display()
+        UI.update_game_history()
 
     @staticmethod
     def add_drag_and_drop():
@@ -429,19 +547,15 @@ class UI:
                 if not square:
                     print(f"Warning: Square {square_id} not found in the DOM. Ensure it exists.")
                     continue
-
                 square.bind("dragover", UI.allow_drop)
                 square.bind("drop", UI.drop)
 
-
     @staticmethod
     def allow_drop(event):
-        print("allow_drop triggered")
         event.preventDefault()
 
     @staticmethod
     def drag_start(event):
-        print("drag_start triggered")
         parent_id = event.target.parent.id if event.target.parent else None
         if parent_id:
             event.dataTransfer.setData("text", parent_id)
@@ -450,47 +564,32 @@ class UI:
 
     @staticmethod
     def drop(event):
-        print("drop triggered")
         event.preventDefault()
-
         source_square_id = event.dataTransfer.getData("text")
         target_element = event.target
-
         while not hasattr(target_element, "id") or not target_element.id:
             target_element = target_element.parentElement
             if not target_element:
                 print("Error: Could not find a valid target element with an ID.")
                 return
-
         target_square_id = target_element.id
-
         if not source_square_id or not target_square_id:
             print(f"Error: Invalid drag-and-drop data. Source: {source_square_id}, Target: {target_square_id}")
             return
-
-        print(f"Source: {source_square_id}, Target: {target_square_id}")
-
         try:
             start_row, start_col = int(source_square_id[0]), int(source_square_id[1])
             end_row, end_col = int(target_square_id[0]), int(target_square_id[1])
-
             global game_state
-
             flipped = game_state.own_color == "black"
-
             if flipped:
                 start_row, start_col = 7 - start_row, 7 - start_col
                 end_row, end_col = 7 - end_row, 7 - end_col
-
             if game_state.game_status != "running" and not game_state.both_joined:
                 print("Game has not started yet!")
                 return
-
             if not game_state.is_move_legal(start_row, start_col, end_row, end_col):
                 print("Illegal move attempted.")
                 return
-
-            print(f"Moving piece from ({start_row}, {start_col}) to ({end_row}, {end_col})")
             source_square = document[source_square_id]
             if source_square and source_square.firstChild:
                 socket_handler.send_move((start_row, start_col), (end_row, end_col))
@@ -499,35 +598,14 @@ class UI:
         except ValueError:
             print("Error: Invalid square IDs.")
 
-
-
-                
     @staticmethod
     def display_game_id(game_id):
         if "gameIdDisplay" not in document:
             print("Error: 'gameIdDisplay' not found in the DOM.")
             return
-        print(f"'gameIdDisplay' found. Setting Game ID to: {game_id}")
         game_id_element = document["gameIdDisplay"]
         game_id_element.style.display = "block"
         game_id_element.text = f"Game ID: {game_id}"
-        
-    @staticmethod
-    def debug_print_pieces():
-        print("Current pieces on the board:")
-        for row in range(8):
-            for col in range(8):
-                position = f"{row}{col}"
-                square = document[position]
-                print(position)
-                print(square)
-                if square:
-                    print(square.children)
-                    for child in square.children:
-                        if child.Class == "piece":
-                            print(f"Piece at {position}: {child.src}")
-
-
 
 
 

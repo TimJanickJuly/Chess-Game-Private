@@ -1247,6 +1247,7 @@ std::vector<std::vector<int>> Game::get_board_state() {
     }
     return state;
 }
+
 std::string Game::generate_move_notation(int start_row, int start_col, int target_row, int target_col) {
     if (start_row < 0 || start_row >= 8 || start_col < 0 || start_col >= 8 ||
         target_row < 0 || target_row >= 8 || target_col < 0 || target_col >= 8) {
@@ -1280,10 +1281,36 @@ std::string Game::generate_move_notation(int start_row, int start_col, int targe
     bool is_capture = (board_state[target_row][target_col] != 0 &&
                        (board_state[target_row][target_col] * piece_value < 0));
 
+
+    // determine if the move is ambious
+    int piece_owner = (piece_value > 0) ? 1 : -1;
+
+    auto pieces_owner = (piece_owner == 1) ? white_pieces : black_pieces;
+
+    bool is_ambigous = false;
+
+    bool found = false;
+    for (const auto& piece : pieces_owner) {
+        if (piece_encoding[std::abs(piece_value)] == piece->getPieceType() &&
+    !(piece->get_row() == start_row && piece->get_col() == start_col)) {
+            std::vector<std::tuple<int, int, bool>> move_candidates = piece->get_available_coords_to_move_to(piece_owner, board_state);
+            for (const auto& candidate : move_candidates) {
+                if (std::get<0>(candidate) == target_row && std::get<1>(candidate) == target_col) {
+                    std::cout << "Passender Move gefunden" << std::endl;
+                    is_ambigous = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+    }
+
+
     // Create a move object to generate algebraic notation
     Move move;
     move.setIsLegalMove(true);
     move.setPieceToMove(piece_type);
+    move.setIsDifficultMove(is_ambigous);
     move.set_row_CoordStart(start_row);
     move.set_col_CoordStart(start_col);
     move.set_row_CoordTarget(target_row);
