@@ -880,9 +880,8 @@ bool Game::is_stalemate() {
         if (has_piece_available_move(piece, piece_owner)){
             return false;
         }
-        return true;
     }
-    return false;
+    return true;
 }
 
 
