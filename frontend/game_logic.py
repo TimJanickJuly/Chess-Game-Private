@@ -1,13 +1,10 @@
 from browser import document, html, ajax, websocket, alert, window, bind
 import json
 
-#class Config:
-#    BASE_URL = f"http://{window.location.hostname}:8000"
-#    WS_URL = f"ws://{window.location.hostname}:8000/ws"
-
 class Config:
-    BASE_URL = "http://127.0.0.1:8000"
-    WS_URL = "ws://127.0.0.1:8000/ws"
+    BASE_URL = f"http://{window.location.hostname}:8000"
+    WS_URL = f"ws://{window.location.hostname}:8000/ws"
+
 
 class GameState:
     def __init__(self):
@@ -118,7 +115,7 @@ class GameState:
                     if [(7 - row_end) % 8, col_end] in end_squares:
                         print("move is legal!")
                         return True
-        
+
 class WebSocketHandler:
     def __init__(self, game_state):
         self.socket = None
@@ -132,7 +129,6 @@ class WebSocketHandler:
             return
 
         try:
-            # Aufbau der Verbindung entsprechend des Backend-Pfads /ws/{game_id}/{player_id}
             self.socket = websocket.WebSocket(f"{Config.WS_URL}/{self.game_state.game_id}/{self.game_state.player_name}")
             self.socket.bind("open", self.on_open)
             self.socket.bind("message", self.on_message)
@@ -148,7 +144,6 @@ class WebSocketHandler:
         print("Received message")
         try:
             data = json.loads(event.data)
-            # Neben den bekannten Events ("state" und "update") können auch "error" zurückkommen.
             if data.get("event") in ["state", "update"]:
                 state = data.get("state", {})
                 if not state:
@@ -205,14 +200,24 @@ class WebSocketHandler:
 
 class API:
     @staticmethod
+    def get_game_info(game_state, callback):
+        url = Config.BASE_URL + f"/game_info/{game_state.game_id}/{game_state.player_name}"
+        def handle_response(response):
+            if response.status == 200:
+                try:
+                    info = json.loads(response.text)
+                    callback(info)
+                except Exception as e:
+                    print(f"Error processing game info: {e}")
+            else:
+                print(f"Error: HTTP {response.status}")
+        ajax.get(url, oncomplete=handle_response)
+        
     def can_i_join(game_id, callback):
-        # Falls der Spielername noch nicht gesetzt ist, diesen generieren.
         if not game_state.player_name:
             game_state.player_name = game_state.generate_player_name()
-        # URL entsprechend des GET-Endpunkts: /game_info/{game_id}/{player_id}
         url = Config.BASE_URL + f"/game_info/{game_id}/{game_state.player_name}"
         print(f"Asking whether I can join: {url}")
-
         def handle_response(response):
             if response.status == 200:
                 try:
@@ -226,7 +231,6 @@ class API:
             else:
                 print(f"Error: HTTP {response.status}")
                 callback(False)
-
         ajax.get(url, oncomplete=handle_response)
 
     @staticmethod
@@ -247,9 +251,7 @@ class API:
                 if not game_state.game_id:
                     print("Game ID missing in the server response.")
                     return
-
                 print(f"Game created with ID: {game_state.game_id}")
-                # Nach Erstellen des Spiels wird der Beitritt initiiert.
                 API.join_game(game_state, callback=lambda: (
                     socket_handler.connect(),
                     UI.display_game_id(game_state.game_id)
@@ -264,11 +266,8 @@ class API:
         if not game_state.game_id or not game_state.player_name:
             print("Cannot join game: Game ID or Player Name is missing.")
             return
-
-        # URL für den POST-Endpunkt /join_game/{game_id} und Übergabe des JSON-Bodys mit player_id
         url = Config.BASE_URL + f"/join_game/{game_state.game_id}"
         data = {"player_id": game_state.player_name}
-
         def handle_response(req):
             if req.status == 200:
                 try:
@@ -281,14 +280,12 @@ class API:
                     print("Failed to parse server response for join_game.")
             else:
                 print(f"Failed to join game: HTTP {req.status}. Response: {req.text}")
-
         ajax.post(
             url,
             data=json.dumps(data),
             headers={"Content-Type": "application/json"},
             oncomplete=handle_response
         )
-
 
 class EventBindings:
     @staticmethod
@@ -303,7 +300,6 @@ class EventBindings:
         if not input_field:
             print("Error: 'gameIdInput' not found in the DOM.")
             return
-
         if input_field.style.display == "none":
             input_field.style.display = "block"
             input_field.focus()
@@ -312,20 +308,16 @@ class EventBindings:
 
     @staticmethod
     def process_input(event):
-        if event.keyCode == 13:  # Enter key
+        if event.keyCode == 13:
             input_field = document["gameIdInput"]
             if not input_field:
                 print("Error: 'gameIdInput' not found in the DOM.")
                 return
-
             game_id = input_field.value.strip()
             print("Trying to join: ", game_id)
-
             if game_id:
-                # Generiere hier sicherheitshalber auch den Spielernamen, falls nicht schon gesetzt.
                 if not game_state.player_name:
                     game_state.player_name = game_state.generate_player_name()
-
                 def handle_can_i_join_response(joinable):
                     if joinable:
                         print(f"Game ID entered: {game_id}")
@@ -333,8 +325,6 @@ class EventBindings:
                         game_init()
                     else:
                         alert("Game is full or cannot be joined.")
-
-                # Übergabe der Callback-Funktion an `can_i_join`
                 API.can_i_join(game_id, callback=handle_can_i_join_response)
             else:
                 alert("Please enter a valid Game ID!")
@@ -342,6 +332,8 @@ class EventBindings:
 class UI:
     timer_interval_id = None
     last_timer_update = None
+    timeout_checked = False
+    timer_stopped = False
 
     @staticmethod
     def ensure_remaining_time_display():
@@ -376,7 +368,16 @@ class UI:
             UI.timer_interval_id = window.setInterval(UI.tick_timer, 1000)
 
     @staticmethod
+    def stop_timer():
+        if UI.timer_interval_id is not None:
+            window.clearInterval(UI.timer_interval_id)
+            UI.timer_interval_id = None
+        UI.timer_stopped = True
+
+    @staticmethod
     def tick_timer():
+        if UI.timer_stopped:
+            return
         now = window.performance.now()
         elapsed = (now - UI.last_timer_update) / 1000.0
         UI.last_timer_update = now
@@ -385,6 +386,23 @@ class UI:
             if active_color in game_state.remaining_time:
                 game_state.remaining_time[active_color] = max(0, game_state.remaining_time[active_color] - elapsed)
         UI.update_remaining_time_display()
+        for color, time_left in game_state.remaining_time.items():
+            if time_left <= 0 and not UI.timeout_checked:
+                UI.timeout_checked = True
+                print(f"Timeout for {color}. Requesting updated game info...")
+                API.get_game_info(game_state, callback=UI.handle_timeout_response)
+                break
+
+    @staticmethod
+    def handle_timeout_response(info):
+        game_state.update_from_response(info)
+        for color, time_left in game_state.remaining_time.items():
+            if time_left <= 0:
+                winner = "white wins" if color == "black" else "black wins"
+                game_state.text = winner
+                UI.update_game_state(winner)
+                UI.stop_timer()
+                break
 
     @staticmethod
     def create_game_area():
@@ -447,17 +465,14 @@ class UI:
         container <= table
         return container
 
-    
     @staticmethod
     def update_game_history():
         if "gameHistoryContainer" not in document:
             return
         container = document["gameHistoryContainer"]
         table = document["gameHistoryTable"]
-        # Leere zunächst die Tabelle
         while table.firstChild:
             table.removeChild(table.firstChild)
-        # Fülle die Tabelle mit den Game History-Einträgen
         for entry in game_state.game_history:
             move_number = entry[0]
             moves = entry[1]
@@ -470,27 +485,22 @@ class UI:
             moves_cell = html.TD(f"{white_move} {black_move}")
             row <= moves_cell
             table <= row
-
-        # Dynamische Schriftgrößenberechnung:
         def compute_font_size(num_moves):
-            max_size = 16  # maximale Schriftgröße in px
-            min_size = 8   # minimale Schriftgröße in px
-            threshold = 15 # ab hier wird reduziert
+            max_size = 16
+            min_size = 8
+            threshold = 15
             if num_moves <= threshold:
                 return max_size
-            # Linearer Abfall: Für jeden Zug oberhalb des Schwellenwerts wird die Größe um 0.4px reduziert
             new_size = max(max_size - (num_moves - threshold) * 0.4, min_size)
             return new_size
-
         new_font_size = compute_font_size(len(game_state.game_history))
         container.style.fontSize = f"{new_font_size}px"
-
 
     @staticmethod
     def update_game_state(new_state):
         game_state_element = document["gameState"]
         if game_state_element:
-            game_state_element.text = new_state
+            game_state_element.innerText = new_state
         else:
             print("Error: 'gameState' element not found in the DOM.")
 
@@ -501,13 +511,11 @@ class UI:
         if not square:
             print(f"Error: Square {position} not found in the DOM.")
             return
-
         def has_piece(sq):
             for child in sq.children:
                 if child.tagName.lower() == "img" and "piece" in child.attrs.get("class", "").split():
                     return True
             return False
-
         if has_piece(square):
             for child in list(square.children):
                 if child.tagName.lower() == "img" and "piece" in child.attrs.get("class", "").split():
@@ -607,13 +615,9 @@ class UI:
         game_id_element.style.display = "block"
         game_id_element.text = f"Game ID: {game_id}"
 
-
-
-
 game_state = GameState()
 socket_handler = WebSocketHandler(game_state)
 EventBindings.bind_events()
-
 
 def game_init(mode = None):
     UI.create_chessboard()
@@ -622,9 +626,7 @@ def game_init(mode = None):
     if mode == "create":
         API.create_game(game_state)
     API.join_game(game_state, callback=lambda: (
-    socket_handler.connect(),
-    UI.display_game_id(game_state.game_id)
+        socket_handler.connect(),
+        UI.display_game_id(game_state.game_id)
     ))
     UI.update_board_state(game_state.board_state)
-    
-    

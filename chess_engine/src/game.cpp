@@ -71,11 +71,7 @@ int Game::handle_turn(const std::string &str_player_move) {
     if (!consider_move(move)){ // tests if move is legal: if true: move was executed, if false: move was rejected
         return -1;
     }
-    std::cout << "move successfully considered" << "\n";
-
     game_history_str.push_back(move->get_algebraic_chess_notation()); // log the move in game history
-
-    std::cout << "in is player in check" << "\n";
 
     if(is_passive_player_in_check) {
         if (active_player > 0) {
@@ -83,7 +79,6 @@ int Game::handle_turn(const std::string &str_player_move) {
         }else {
             last_move_status = "White has been put under check\n";
         }
-        std::cout << "in is checkmate" << "\n";
         if(is_checkmate()) {
             last_move_status = "Checkmate Detected\n";
             move->is_mate = true;
@@ -97,7 +92,6 @@ int Game::handle_turn(const std::string &str_player_move) {
         }
     }
     else {
-        std::cout << "in is stalemate" << "\n";
         if(is_stalemate()){
             last_move_status = "Stalemate Detected\n";
             game_state = "stalemate";
@@ -110,7 +104,6 @@ int Game::handle_turn(const std::string &str_player_move) {
             return 0;
         }
     }
-    std::cout << "after all checks" << "\n";
     clean_up_after_turn();
     switchPlayer();
     num_moves_played += 1;
