@@ -2,9 +2,8 @@ from browser import document, html, ajax, websocket, alert, window, bind
 import json
 
 class Config:
-    BASE_URL = f"http://{window.location.hostname}:8000"
-    WS_URL = f"ws://{window.location.hostname}:8000/ws"
-
+    BASE_URL = "http://localhost:8000"
+    WS_URL = "ws://localhost:8000/ws"
 
 class GameState:
     def __init__(self):
@@ -527,6 +526,9 @@ class UI:
 
     @staticmethod
     def update_board_state(board_state):
+        board = document["board"]
+        board.classList.add("board-update")
+        window.setTimeout(lambda: board.classList.remove("board-update"), 1000)
         if not board_state or len(board_state) != 8 or any(len(row) != 8 for row in board_state):
             print("Error: Invalid board_state provided.")
             return
@@ -545,6 +547,7 @@ class UI:
                 UI.place_piece(display_row, display_col, piece)
         UI.update_remaining_time_display()
         UI.update_game_history()
+
 
     @staticmethod
     def add_drag_and_drop():
