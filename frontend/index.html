@@ -31,7 +31,7 @@
             padding: 15px 30px;
             font-size: 18px;
             font-weight: bold;
-            color: #fff;
+            color: #bbb;
             background-color: #555; /* Mittelgrau */
             border: none;
             border-radius: 5px;
@@ -107,9 +107,12 @@
 
         #gameIdDisplay {
             color: #ddd;
-            font-size: 16px;
-            margin-top: 10px;
+            font-size: 16px;    
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
         }
+        
     </style>
 </head>
 <body onload="brython()">
@@ -117,11 +120,10 @@
         <button class="menu-button" id="createGameBtn">Create Game</button>
         <button class="menu-button" id="showInputBtn">Join Game</button>
         <input type="text" id="gameIdInput" placeholder="Enter Game ID" style="display: none; padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #444; margin-top: 10px;"/>
-        <div id="gameIdDisplay"></div>
     </div>    
     <div id="gameState">Waiting for game to start...</div>
-
     <div id="board"></div>
+    <div id="gameIdDisplay"></div>
 
     <script type="text/python" src="game_logic.py"></script>
 </body>

@@ -6,9 +6,9 @@ from app.services.game_service import create_game_wrapper, get_game_wrapper, pri
 router = APIRouter()
 
 @router.post("/create_game")
-async def create_game(game_time_in_minutes: int = 1):
-    game_id = uuid.uuid4()
-    game_id = base64.urlsafe_b64encode(game_id.bytes).rstrip(b'=').decode('utf-8')
+async def create_game(game_time_in_minutes: int = 5):
+    import os
+    game_id = base64.urlsafe_b64encode(os.urandom(6)).rstrip(b'=').decode('utf-8')
     create_game_wrapper(game_id, game_time_in_minutes)
     return {"game_id": game_id}
 

@@ -344,7 +344,7 @@ class UI:
             container.style.right = "50px"
             container.style.padding = "10px"
             container.style.border = "1px solid #ccc"
-            container.style.backgroundColor = "#fff"
+            container.style.backgroundColor = "#666"
             document <= container
 
     @staticmethod
@@ -452,7 +452,7 @@ class UI:
         container.style.marginLeft = "20px"
         container.style.width = "200px"
         container.style.border = "1px solid #ccc"
-        container.style.backgroundColor = "#fff"
+        container.style.backgroundColor = "#666"
         container.style.padding = "10px"
         container.style.fontSize = "16px"
         container.style.fontFamily = "Arial, sans-serif"

@@ -5,20 +5,20 @@ from typing import Dict, List
 class ConnectionManager:
     def __init__(self, connection_callback=None):
         self.active_connections: Dict[str, WebSocket] = {}
-        self.connection_callback = connection_callback  # Callback für Status-Updates
+        self.connection_callback = connection_callback
 
     async def connect(self, websocket: WebSocket, player_id: str):
         await websocket.accept()
         self.active_connections[player_id] = websocket
         if self.connection_callback:
-            self.connection_callback(player_id, True)  # Spieler als verbunden markieren
+            self.connection_callback(player_id, True)
 
     async def disconnect(self, player_id: str):
         websocket = self.active_connections.pop(player_id, None)
         if websocket:
             await websocket.close()
         if self.connection_callback:
-            self.connection_callback(player_id, False)  # Spieler als getrennt markieren
+            self.connection_callback(player_id, False)
 
 
     async def send_message(self, player_id: str, message: dict):

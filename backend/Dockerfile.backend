@@ -1,0 +1,16 @@
+FROM python:3.9-slim AS builder
+RUN apt-get update && apt-get install -y git gcc g++ cmake build-essential python3-dev
+WORKDIR /app
+COPY . .
+RUN pip install --upgrade pip && \
+    pip install fastapi uvicorn pydantic websockets fastapi[all] pybind11
+WORKDIR /app/chess_engine
+RUN mkdir build && cd build && \
+    cmake -Dpybind11_DIR="/usr/local/lib/python3.9/site-packages/pybind11/share/cmake/pybind11" .. && \
+    cmake --build . --config Release
+RUN cp /app/chess_engine/build/chess_engine.so /usr/local/lib/python3.9/site-packages/chess_engine.so
+
+FROM python:3.9-slim
+WORKDIR /app
+COPY --from=builder /app /app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
