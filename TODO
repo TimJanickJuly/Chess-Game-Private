@@ -1,6 +1,5 @@
 Rewrite backend
 generalzie frontend ip
-fix discovered check bug
 refactor chess_engine
 
 implement database for active games
@@ -8,4 +7,3 @@ implement logging
 implement reconnections for active games
 dockerize
 aws deployment more professional <- tutorials
-write read me <- short
