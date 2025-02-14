@@ -2,8 +2,8 @@ from browser import document, html, ajax, websocket, alert, window, bind
 import json
 
 class Config:
-    BASE_URL = "http://localhost:8000"
-    WS_URL = "ws://localhost:8000/ws"
+    BASE_URL = f"http://{window.location.hostname}:8000"
+    WS_URL = f"ws://{window.location.hostname}:8000/ws"
 
 class GameState:
     def __init__(self):
