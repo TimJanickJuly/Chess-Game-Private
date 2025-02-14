@@ -6,9 +6,9 @@ RUN pip install --upgrade pip && \
     pip install fastapi uvicorn pydantic websockets fastapi[all] pybind11
 WORKDIR /app/chess_engine
 RUN mkdir build && cd build && \
-    cmake -Dpybind11_DIR="/usr/local/lib/python3.9/site-packages/pybind11/share/cmake/pybind11" .. && \
+    cmake -Dpybind11_DIR="$(python -m pybind11 --cmakedir)" .. && \
     cmake --build . --config Release
-RUN cp /app/chess_engine/build/chess_engine.so /usr/local/lib/python3.9/site-packages/chess_engine.so
+RUN cp /app/chess_engine/build/chess_engine.so "$(python -c 'import site; print(site.getsitepackages()[0])')/chess_engine.so"
 
 FROM python:3.9-slim
 WORKDIR /app
