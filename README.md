@@ -1,81 +1,81 @@
-# ChessEngine Python Module
+# Chess Game – Online Multiplayer Chess
 
-Dieses Projekt erstellt ein Python-Modul (`chess_engine`) aus einer C++-Codebasis mithilfe von `pybind11`.
+This project is a fully functional online chess game with three main components:
 
-## Voraussetzungen
+Chess Engine (C++):The engine is implemented in C++ and handles game logic. It is made available in Python using pybind11.
 
-- Python 3.7 oder neuer
-- `pybind11` installiert (z. B. via `pip install pybind11`)
-- C++17-kompatibler Compiler
-- CMake 3.12 oder neuer
+Backend (FastAPI/Python):The backend manages game instances and provides a REST API. It is built with FastAPI and runs on uvicorn.
 
-## Installation
+Frontend (Brython):The frontend is implemented using Brython and runs directly in the browser.
 
-1. **Clone das Repository** und navigiere in das Verzeichnis des Projekts:
-   ```bash
-   git clone <repository-url>
-   cd ChessGame/source/chess_engine
-   ```
+Installation & Execution
 
-2. **Erstelle ein Build-Verzeichnis**:
-   ```bash
-   mkdir build
-   cd build
-   ```
+Linux / AWS (Bash Script)
 
-   VENV MUSS AKTIV SEIN
-(cmake -Dpybind11_DIR="C:/Users/tim.janick.july/Documents/Ch
-essGame/venv/Lib/site-packages/pybind11/share/cmake/pybind11" ..)
+#!/bin/bash
 
-3. **Führe CMake aus**, um das Projekt zu konfigurieren. Achte darauf, den richtigen `pybind11`-Pfad anzugeben:
-   ```bash
-   cmake -Dpybind11_DIR=$(python -m pybind11 --cmakedir) ..
-   ```
+sudo yum install git -y
+sudo yum groupinstall "Development Tools" -y
+sudo yum install gcc-c++ cmake python3-devel tmux -y
 
-4. **Baue das Modul**:
-   ```bash
-   cmake --build . --config Release
-   ```
+rm -rf Chess-Game-Private
+git clone https://github.com/TimJanickJuly/Chess-Game-Private.git
+cd Chess-Game-Private
 
-   Nach dem Build sollte die Datei `chess_engine.pyd` (unter Windows) oder `chess_engine.so` (unter Unix) im Ordner `Release` generiert werden:
-   ```plaintext
-   build/Release/chess_engine.pyd
-   ```
-am beste .pyd direkt in die venv kopieren
-## Nutzung
+python3 -m venv venv
+source venv/bin/activate
 
-1. **Füge das Build-Verzeichnis zu `PYTHONPATH` hinzu**, damit das Modul importiert werden kann:
-   ```bash
-   export PYTHONPATH=$(pwd)/Release:$PYTHONPATH
-   ```
-   Unter Windows:
-   ```cmd
-   set PYTHONPATH=%cd%\Release;%PYTHONPATH%
-   ```
+pip install --upgrade pip
+pip install fastapi uvicorn pydantic websockets fastapi[all] pybind11
 
-2. **Teste das Modul**:
-   Navigiere zum Testverzeichnis und führe ein Python-Skript aus, das das Modul nutzt:
-   ```bash
-   cd ../../../tests
-   python test_chess_engine.py
-   ```
+cd chess_engine
+mkdir -p build && cd build
+cmake -Dpybind11_DIR="/home/<USERNAME>/Chess-Game-Private/venv/lib64/python3.9/site-packages/pybind11/share/cmake/pybind11" ..
+cmake --build . --config Release
 
-   Beispielausgabe:
-   ```plaintext
-   Aktiver Spieler: 1
-   8  BR  BN  BB  BQ  BK  BB  BN  BR
-   7  BP  BP  BP  BP  BP  BP  BP  BP
-   6  ..  ..  ..  ..  ..  ..  ..  ..
-   ...
-   ```
+cp chess_engine.so ../venv/lib/python3.9/site-packages/chess_engine.so
 
-## Hinweise
+cd ../../backend
+tmux new -d -s backend "source ../venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
-- **Fehlerbehebung**:
-  Falls `ModuleNotFoundError: No module named 'chess_engine'` auftritt, stellen Sie sicher, dass der `PYTHONPATH` korrekt gesetzt ist.
-- **Systemübergreifende Pfade**:
-  Ersetze die Pfade entsprechend deinem Betriebssystem und deiner Verzeichnisstruktur.
-- **Compiler-Warnungen**:
-  Diese können während des Builds auftreten, beeinträchtigen jedoch die Funktionalität nicht.
+cd ../frontend
+tmux new -d -s frontend "python3 -m http.server 3000 --bind 0.0.0.0"
 
-Viel Spaß beim Programmieren!
+echo "✅ Installation complete."
+echo "📌 Backend: http://$(curl -s ifconfig.me):8000"
+echo "📌 Frontend: http://$(curl -s ifconfig.me):3000"
+
+Windows (WSL / Git Bash)
+
+rm -rf Chess-Game-Private
+git clone https://github.com/TimJanickJuly/Chess-Game-Private.git
+cd Chess-Game-Private
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip
+pip install fastapi uvicorn pydantic websockets fastapi[all] pybind11
+
+cd chess_engine
+mkdir build && cd build
+cmake -Dpybind11_DIR="$(python3 -m pybind11 --cmakedir)" ..
+cmake --build . --config Release
+
+cp chess_engine.so ../venv/lib/python3.9/site-packages/chess_engine.so
+
+cd ../../backend
+source ../venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+cd ../frontend
+python3 -m http.server 3000 --bind 0.0.0.0
+
+Summary
+
+Chess Engine (C++): Compiled using CMake and made available in Python via pybind11.
+
+Backend (FastAPI): Manages game instances and provides an API.
+
+Frontend (Brython): Browser-based UI.
+
+Follow the installation instructions and enjoy the game!
