@@ -11,7 +11,7 @@ Frontend (Brython):The frontend is implemented using Brython and runs directly i
 Installation & Execution
 
 Linux / AWS (Bash Script)
-
+'''
 #!/bin/bash
 
 sudo yum install git -y
@@ -44,9 +44,11 @@ tmux new -d -s frontend "python3 -m http.server 3000 --bind 0.0.0.0"
 echo "✅ Installation complete."
 echo "📌 Backend: http://$(curl -s ifconfig.me):8000"
 echo "📌 Frontend: http://$(curl -s ifconfig.me):3000"
+'''
 
 Windows (WSL / Git Bash)
 
+'''
 rm -rf Chess-Game-Private
 git clone https://github.com/TimJanickJuly/Chess-Game-Private.git
 cd Chess-Game-Private
@@ -69,13 +71,7 @@ source ../venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 -
 
 cd ../frontend
 python3 -m http.server 3000 --bind 0.0.0.0
+'''
 
-Summary
-
-Chess Engine (C++): Compiled using CMake and made available in Python via pybind11.
-
-Backend (FastAPI): Manages game instances and provides an API.
-
-Frontend (Brython): Browser-based UI.
 
 Follow the installation instructions and enjoy the game!
